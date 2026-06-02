@@ -1,0 +1,1965 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訓練中心住宿管理系統</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d3748;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Header ── */
+.header{background:linear-gradient(135deg,#1a365d,#2b6cb0);color:white;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0}
+.header h1{font-size:17px}
+.btn{padding:6px 13px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;transition:.18s}
+.btn-light{background:rgba(255,255,255,.2);color:white}.btn-light:hover{background:rgba(255,255,255,.32)}
+.btn-primary{background:#3182ce;color:white}.btn-primary:hover{background:#2c5282}
+.btn-success{background:#38a169;color:white}.btn-success:hover{background:#276749}
+.btn-warning{background:#d69e2e;color:white}.btn-warning:hover{background:#b7791f}
+.btn-danger{background:#e53e3e;color:white}.btn-danger:hover{background:#c53030}
+.btn-cancel{background:#e2e8f0;color:#4a5568}.btn-cancel:hover{background:#cbd5e0}
+.btn-sm{padding:3px 9px;font-size:11px}
+
+/* ── Main layout ── */
+.main{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* ── Left sidebar ── */
+.sidebar{width:265px;background:white;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sidebar-tabs{display:flex;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+.tab-btn{flex:1;padding:9px 4px;border:none;background:none;cursor:pointer;font-size:12px;color:#718096;border-bottom:2px solid transparent;font-family:inherit}
+.tab-btn.active{color:#3182ce;border-bottom-color:#3182ce;font-weight:600}
+.tab-content{flex:1;overflow-y:auto;padding:10px;display:none}
+.tab-content.active{display:block}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.stat-card{background:#ebf8ff;border:1px solid #bee3f8;border-radius:7px;padding:9px;text-align:center}
+.stat-card.orange{background:#fffaf0;border-color:#fbd38d}
+.stat-card.green{background:#f0fff4;border-color:#9ae6b4}
+.stat-card.red{background:#fff5f5;border-color:#feb2b2}
+.stat-num{font-size:24px;font-weight:700;color:#2b6cb0}
+.stat-card.orange .stat-num{color:#c05621}
+.stat-card.green .stat-num{color:#276749}
+.stat-card.red .stat-num{color:#c53030}
+.stat-label{font-size:10px;color:#718096;margin-top:1px}
+.section-title{font-size:12px;font-weight:600;color:#4a5568;margin:10px 0 6px;border-left:3px solid #3182ce;padding-left:7px}
+
+.person-item{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:6px;cursor:grab;background:#f7fafc;border:1px solid #e2e8f0;margin-bottom:4px;transition:.12s;font-size:12px;user-select:none}
+.person-item:hover{background:#ebf8ff;border-color:#90cdf4}
+.person-item.dragging{opacity:.4}
+.person-avatar{width:26px;height:26px;border-radius:50%;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.person-info{flex:1;min-width:0}
+.person-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person-dept{font-size:10px;color:#718096}
+
+.room-item-sb{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;margin-bottom:3px;background:#f7fafc;border:1px solid #e2e8f0;font-size:12px;cursor:pointer}
+.room-item-sb:hover{background:#ebf8ff}
+.room-badge{padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.badge-empty{background:#c6f6d5;color:#276749}
+.badge-partial{background:#fefcbf;color:#744210}
+.badge-full{background:#fed7d7;color:#c53030}
+
+/* ── Map area ── */
+.map-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#edf2f7;padding:10px}
+
+/* Floor tabs */
+.floor-tabs{display:flex;gap:0;margin-bottom:10px;background:#e2e8f0;border-radius:8px;padding:3px;width:fit-content}
+.floor-tab{padding:6px 22px;border:none;background:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:#718096;transition:.18s;font-family:inherit}
+.floor-tab.active{background:white;color:#2b6cb0;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+
+.map-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0}
+.legend{display:flex;gap:10px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#4a5568}
+.legend-box{width:12px;height:12px;border-radius:3px;border:2px solid}
+
+/* Floor plan container */
+.map-wrap{flex:1;overflow:auto;border-radius:8px;background:white;box-shadow:0 1px 8px rgba(0,0,0,.1);position:relative}
+.floor-plan-container{position:relative;display:block;width:100%;min-width:700px}
+.floor-plan-img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
+
+/* No-image fallback */
+.floor-plan-svg{display:block;width:100%;height:auto}
+
+/* Room overlay buttons */
+.room-btn{
+  position:absolute;
+  border-radius:5px;border:2px solid;
+  cursor:pointer;transition:.12s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Microsoft JhengHei',sans-serif;
+  background:rgba(198,246,213,.82);border-color:#38a169;
+}
+.room-btn.partial{background:rgba(254,252,191,.88);border-color:#d69e2e}
+.room-btn.full{background:rgba(254,215,215,.88);border-color:#e53e3e}
+/* ── Female occupant: pink override ── */
+.room-btn.female{background:rgba(255,192,203,.82);border-color:#d53f8c}
+.room-btn.partial.female{background:rgba(255,182,193,.88);border-color:#d53f8c}
+.room-btn.full.female{background:rgba(219,39,119,.75);border-color:#b83280}
+.room-btn.selected{outline:3px solid #2b6cb0;outline-offset:1px}
+.room-btn:hover{filter:brightness(.88);z-index:5}
+.room-btn.drag-over{border-color:#2b6cb0 !important;background:rgba(235,248,255,.9) !important}
+.room-btn-num{font-size:11px;font-weight:700;color:#1a202c;line-height:1.2}
+.room-btn-occ{font-size:9px;color:#4a5568;line-height:1}
+.room-btn-dots{display:flex;gap:2px;margin-top:1px}
+.bed-dot{width:6px;height:6px;border-radius:50%}
+
+/* Upload hint */
+.img-upload-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#a0aec0;pointer-events:none}
+.img-upload-hint .icon{font-size:48px;margin-bottom:8px}
+.img-upload-hint p{font-size:13px}
+
+/* ── Right panel ── */
+.right-panel{width:285px;background:white;border-left:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.panel-header{padding:10px 12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+.panel-header h3{font-size:13px;color:#2d3748}
+.panel-body{flex:1;overflow-y:auto;padding:10px}
+.room-detail-header{background:linear-gradient(135deg,#2b6cb0,#3182ce);color:white;padding:12px;border-radius:7px;margin-bottom:10px}
+.room-detail-header h2{font-size:18px;margin-bottom:2px}
+.room-detail-header .sub{font-size:11px;opacity:.85}
+
+.bed-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.bed-slot{border:2px dashed #cbd5e0;border-radius:7px;padding:7px;min-height:64px;text-align:center;transition:.12s;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.bed-slot.occupied{border-style:solid;border-color:#68d391;background:#f0fff4}
+.bed-slot.drag-over{border-color:#3182ce !important;background:#ebf8ff !important}
+.bed-name{font-size:10px;font-weight:600;color:#2d3748;margin-top:3px}
+.bed-dept{font-size:9px;color:#718096}
+.bed-remove{position:absolute;top:2px;right:2px;background:#fc8181;color:white;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;display:none;align-items:center;justify-content:center}
+.bed-slot.occupied:hover .bed-remove{display:flex}
+
+.sched-row{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:11px}
+.sched-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
+
+/* Modals */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:white;border-radius:10px;padding:22px;width:410px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h3{font-size:15px;margin-bottom:14px}
+.form-group{margin-bottom:10px}
+.form-group label{display:block;font-size:11px;font-weight:600;color:#4a5568;margin-bottom:3px}
+.form-group input,.form-group select{width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;font-family:inherit}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#3182ce;box-shadow:0 0 0 3px rgba(49,130,206,.12)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.modal-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:14px}
+
+.toast{position:fixed;bottom:18px;right:18px;z-index:2000;background:#2d3748;color:white;padding:10px 16px;border-radius:7px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.3);transform:translateY(50px);opacity:0;transition:.28s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:#276749}
+.toast.error{background:#c53030}
+
+.filter-row{display:flex;gap:5px;margin-bottom:8px}
+.filter-row input{flex:1;padding:5px 8px;border:1px solid #cbd5e0;border-radius:5px;font-size:11px;font-family:inherit}
+.drag-hint{font-size:10px;color:#718096;text-align:center;padding:5px;border:1px dashed #cbd5e0;border-radius:5px;margin-bottom:7px}
+.empty-state{text-align:center;color:#a0aec0;padding:24px 0;font-size:12px}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:#f0f4f8}
+::-webkit-scrollbar-thumb{background:#cbd5e0;border-radius:2px}
+
+.date-filter{background:#f7fafc;border-radius:7px;padding:8px;margin-bottom:10px}
+.date-filter label{font-size:11px;color:#4a5568;display:block;margin-bottom:3px}
+.date-filter input{width:100%;padding:4px 7px;border:1px solid #cbd5e0;border-radius:4px;font-size:11px;margin-bottom:5px}
+
+/* zoom controls */
+.zoom-ctrl{display:flex;gap:5px;align-items:center}
+.zoom-ctrl button{background:#e2e8f0;color:#4a5568;padding:3px 10px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-family:inherit}
+.zoom-ctrl button:hover{background:#cbd5e0}
+#zoom-label{font-size:11px;color:#4a5568;min-width:36px;text-align:center}
+
+/* ── Right-click context menu ── */
+#room-ctx-menu{
+  position:fixed;background:white;border:1px solid #e2e8f0;
+  border-radius:9px;box-shadow:0 6px 24px rgba(0,0,0,.16);
+  z-index:9999;min-width:168px;padding:5px 0;
+  font-family:'Microsoft JhengHei',sans-serif;
+  animation:ctxFadeIn .12s ease;
+}
+@keyframes ctxFadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.ctx-item{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:8px 15px;border:none;background:none;
+  cursor:pointer;font-size:13px;color:#2d3748;
+  font-family:inherit;text-align:left;white-space:nowrap;
+}
+.ctx-item:hover{background:#f7fafc}
+.ctx-item.green{color:#276749}
+.ctx-item.red{color:#c53030}
+.ctx-item.orange{color:#c05621}
+.ctx-sep{height:1px;background:#e2e8f0;margin:4px 0}
+
+/* Draggable room style — NO extra cursor icon */
+.room-btn.drag-enabled{
+  outline:2.5px dashed #d69e2e !important;
+  cursor:grab !important;
+  overflow:visible !important;
+}
+.room-btn.drag-enabled:active{cursor:grabbing !important}
+
+/* ── Room resize & rotate handles ── */
+.room-resize-handle{
+  position:absolute;bottom:-9px;right:-9px;
+  width:20px;height:20px;border-radius:4px;
+  cursor:se-resize;z-index:21;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:white;background:#3182ce;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+  transition:transform .15s,opacity .15s;opacity:.85;
+}
+.room-resize-handle:hover{opacity:1;transform:scale(1.25)}
+.room-resize-handle::before{
+  content:'調整大小';
+  position:absolute;bottom:24px;right:0;
+  background:#2d3748;color:white;font-size:10px;
+  padding:3px 7px;border-radius:4px;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+  font-family:'Microsoft JhengHei',sans-serif;
+}
+.room-resize-handle:hover::before{opacity:1}
+
+.room-rotate-handle{
+  position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+  width:18px;height:18px;border-radius:50%;
+  cursor:grab;z-index:22;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:white;background:#805ad5;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+  opacity:.85;transition:opacity .15s;
+}
+.room-rotate-handle:hover{opacity:1}
+.room-rotate-handle:active{cursor:grabbing}
+.room-rotate-handle::after{
+  content:'';position:absolute;bottom:-7px;left:50%;
+  transform:translateX(-50%);width:2px;height:7px;
+  background:#805ad5;
+}
+
+/* ── Special area labels (倉庫 etc.) ── */
+.area-label{
+  position:absolute; border-radius:6px; border:2px solid;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Microsoft JhengHei',sans-serif;
+  font-size:12px; font-weight:700; text-align:center;
+  line-height:1.3; cursor:pointer; user-select:none;
+  padding:2px 4px;
+}
+.area-label:hover{ filter:brightness(.9); z-index:6; }
+.area-label.drag-enabled{ outline:2.5px dashed #d69e2e !important; cursor:grab !important; overflow:visible !important; }
+.area-label.drag-enabled:active{ cursor:grabbing !important; }
+
+/* ── Label resize handle ── */
+.resize-handle{
+  position:absolute; bottom:-8px; right:-8px;
+  width:20px; height:20px; border-radius:4px;
+  cursor:se-resize; z-index:20;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; color:white;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+  transition:transform .15s, opacity .15s;
+  opacity:.9;
+}
+.resize-handle:hover{ opacity:1; transform:scale(1.25); box-shadow:0 3px 10px rgba(0,0,0,.35); }
+
+/* Hint tooltip on resize handle */
+.resize-handle::before{
+  content:'拖移調整大小';
+  position:absolute; bottom:24px; right:0;
+  background:#2d3748; color:white; font-size:10px;
+  padding:3px 7px; border-radius:4px; white-space:nowrap;
+  opacity:0; pointer-events:none; transition:opacity .2s;
+  font-family:'Microsoft JhengHei',sans-serif;
+}
+.resize-handle:hover::before{ opacity:1; }
+
+/* Inline room-number editing */
+.room-num-input{
+  width:96%; border:none; background:transparent;
+  font-size:11px; font-weight:700; color:#1a202c;
+  text-align:center; outline:none; cursor:text;
+  font-family:'Microsoft JhengHei',sans-serif;
+}
+
+/* Edit mode banner */
+#edit-mode-bar{
+  display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+  background:#d69e2e;color:white;padding:7px 18px;border-radius:20px;
+  font-size:12px;font-family:'Microsoft JhengHei',sans-serif;
+  box-shadow:0 3px 12px rgba(0,0,0,.2);z-index:500;
+  display:none;align-items:center;gap:10px;
+}
+#edit-mode-bar.show{display:flex}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:20px">🏨</span>
+    <div>
+      <h1>訓練中心住宿管理系統</h1>
+      <div style="font-size:10px;opacity:.8" id="header-floor-label">5F 平面配置管理</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:7px">
+    <button class="btn btn-light" onclick="openModal('addPerson')">＋ 新增人員</button>
+    <button class="btn btn-light" onclick="openModal('addSchedule')">📅 排定住宿</button>
+    <button class="btn btn-light" onclick="exportData()">📥 匯出</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- ── Left Sidebar ── -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('stats')">統計</button>
+      <button class="tab-btn" onclick="switchTab('persons')">人員</button>
+      <button class="tab-btn" onclick="switchTab('rooms')">房間</button>
+      <button class="tab-btn" onclick="switchTab('schedule')">排程</button>
+    </div>
+
+    <!-- Stats -->
+    <div id="tab-stats" class="tab-content active">
+      <div style="font-size:11px;font-weight:600;color:#3182ce;margin-bottom:6px" id="stats-floor-label">5F 統計</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num" id="stat-total-beds">0</div><div class="stat-label">總床位</div></div>
+        <div class="stat-card green"><div class="stat-num" id="stat-occupied">0</div><div class="stat-label">已入住</div></div>
+        <div class="stat-card orange"><div class="stat-num" id="stat-rooms">0</div><div class="stat-label">使用中房間</div></div>
+        <div class="stat-card red"><div class="stat-num" id="stat-available">0</div><div class="stat-label">空餘床位</div></div>
+      </div>
+      <div class="section-title">入住率</div>
+      <div style="background:#edf2f7;border-radius:6px;height:16px;overflow:hidden;margin-bottom:3px">
+        <div id="occ-bar" style="height:100%;background:linear-gradient(90deg,#38a169,#68d391);border-radius:6px;transition:.5s;width:0%"></div>
+      </div>
+      <div id="occ-pct" style="text-align:center;font-size:12px;color:#4a5568;margin-bottom:12px">0%</div>
+      <div class="section-title">房型統計</div>
+      <div id="room-type-stats" style="font-size:11px"></div>
+      <div class="section-title">今日排程</div>
+      <div id="today-schedule" style="font-size:11px"></div>
+    </div>
+
+    <!-- Persons -->
+    <div id="tab-persons" class="tab-content">
+      <div class="drag-hint">💡 拖曳人員到地圖房間 或 右側床位格</div>
+      <div class="filter-row">
+        <input id="person-search" placeholder="搜尋姓名/部門..." oninput="renderPersonList()">
+        <button class="btn btn-primary btn-sm" onclick="openModal('addPerson')">＋</button>
+      </div>
+      <div id="person-list"></div>
+    </div>
+
+    <!-- Rooms -->
+    <div id="tab-rooms" class="tab-content">
+      <div style="font-size:11px;font-weight:600;color:#3182ce;margin-bottom:6px" id="rooms-floor-label">5F 房間</div>
+      <div class="filter-row">
+        <input id="room-filter" placeholder="搜尋房號..." oninput="renderRoomList()">
+        <button class="btn btn-primary btn-sm" onclick="openModal('addRoom')">＋</button>
+      </div>
+      <div id="room-list"></div>
+    </div>
+
+    <!-- Schedule -->
+    <div id="tab-schedule" class="tab-content">
+      <div style="font-size:11px;font-weight:600;color:#3182ce;margin-bottom:6px" id="sched-floor-label">5F 排程</div>
+      <div class="date-filter">
+        <label>篩選日期</label>
+        <input type="date" id="filter-date" oninput="renderScheduleSidebar()">
+        <button class="btn btn-sm btn-cancel" style="width:100%" onclick="document.getElementById('filter-date').value='';renderScheduleSidebar()">清除</button>
+      </div>
+      <div id="schedule-list"></div>
+    </div>
+  </div>
+
+  <!-- ── Map Area ── -->
+  <div class="map-area">
+    <!-- Floor tabs -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="floor-tabs">
+        <button class="floor-tab active" id="floortab-5F" onclick="switchFloor('5F')">5F</button>
+        <button class="floor-tab" id="floortab-6F" onclick="switchFloor('6F')">6F</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="legend">
+          <div class="legend-item"><div class="legend-box" style="background:#c6f6d5;border-color:#38a169"></div>空房</div>
+          <div class="legend-item"><div class="legend-box" style="background:#fefcbf;border-color:#d69e2e"></div>部分</div>
+          <div class="legend-item"><div class="legend-box" style="background:#fed7d7;border-color:#e53e3e"></div>客滿</div>
+          <div class="legend-item"><div class="legend-box" style="background:#ffc0cb;border-color:#d53f8c"></div>女性</div>
+        </div>
+        <div class="zoom-ctrl">
+          <button onclick="zoomMap(-0.1)">－</button>
+          <span id="zoom-label">100%</span>
+          <button onclick="zoomMap(0.1)">＋</button>
+          <button onclick="resetZoom()">重置</button>
+        </div>
+        <button class="btn btn-sm" style="background:#e9d8fd;color:#553c9a;white-space:nowrap" onclick="openModal('addLabel')" title="新增倉庫/標籤">＋ 新增標籤</button>
+        <!-- Image upload -->
+        <label style="cursor:pointer;font-size:11px;color:#3182ce;white-space:nowrap" title="上傳底圖">
+          🖼️ 更換底圖
+          <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
+        </label>
+      </div>
+    </div>
+
+    <div class="map-wrap" id="map-wrap">
+      <div class="floor-plan-container" id="floor-plan-container">
+        <!-- image + overlays injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right Panel ── -->
+  <div class="right-panel">
+    <div class="panel-header">
+      <h3 id="panel-title">選擇房間查看詳情</h3>
+      <button class="btn btn-sm btn-primary" id="btn-edit-room" style="display:none" onclick="openModal('editRoom')">編輯</button>
+    </div>
+    <div class="panel-body" id="room-detail-body">
+      <div class="empty-state">
+        <div style="font-size:38px;margin-bottom:8px">🏠</div>
+        點擊地圖上的房間<br>或左側房間列表<br>以查看配置詳情
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modals ── -->
+<div class="modal-overlay" id="modal-addPerson">
+  <div class="modal">
+    <h3>新增人員</h3>
+    <div class="form-group"><label>姓名 *</label><input id="p-name" placeholder="請輸入姓名"></div>
+    <div class="form-group"><label>受訓班期名稱</label><input id="p-class" placeholder="例：114年消防人員特考第1期"></div>
+    <div class="form-row">
+      <div class="form-group"><label>部門</label><input id="p-dept" placeholder="部門/單位"></div>
+      <div class="form-group"><label>職稱</label><input id="p-title" placeholder="職稱"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>性別</label><select id="p-gender"><option value="M">男</option><option value="F">女</option></select></div>
+      <div class="form-group"><label>電話</label><input id="p-phone" placeholder="聯絡電話"></div>
+    </div>
+    <div class="form-group"><label>備註</label><input id="p-note" placeholder="備註"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('addPerson')">取消</button>
+      <button class="btn btn-success" onclick="addPerson()">新增</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-addSchedule">
+  <div class="modal">
+    <h3>排定住宿</h3>
+    <div class="form-group"><label>選擇人員 *</label><select id="s-person" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit"></select></div>
+    <div class="form-group"><label>樓層</label>
+      <select id="s-floor" onchange="updateSRoomSelect()" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit">
+        <option value="5F">5F</option><option value="6F">6F</option>
+      </select></div>
+    <div class="form-group"><label>選擇房間 *</label><select id="s-room" onchange="updateBedSelect()" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit"></select></div>
+    <div class="form-row">
+      <div class="form-group"><label>入住日期 *</label><input type="date" id="s-checkin"></div>
+      <div class="form-group"><label>退房日期 *</label><input type="date" id="s-checkout"></div>
+    </div>
+    <div class="form-group"><label>床位</label><select id="s-bed" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit"></select></div>
+    <div class="form-group"><label>備註</label><input id="s-note" placeholder="備註"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('addSchedule')">取消</button>
+      <button class="btn btn-success" onclick="addSchedule()">確認排定</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-addRoom">
+  <div class="modal">
+    <h3>新增房間</h3>
+    <div class="form-row">
+      <div class="form-group"><label>房號 *</label><input id="r-num" placeholder="例：529"></div>
+      <div class="form-group"><label>床位數 *</label><input type="number" id="r-beds" min="1" max="10" value="2"></div>
+    </div>
+    <div class="form-group"><label>房型</label>
+      <select id="r-type" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit">
+        <option>單人房</option><option>雙人房</option><option>三人房</option><option>四人房</option><option>多人房</option>
+      </select></div>
+    <div class="form-group"><label>備註</label><input id="r-note"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('addRoom')">取消</button>
+      <button class="btn btn-success" onclick="addRoom()">新增</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-editRoom">
+  <div class="modal">
+    <h3>編輯房間</h3>
+    <input type="hidden" id="er-id">
+    <div class="form-row">
+      <div class="form-group"><label>房號</label><input id="er-num" readonly style="background:#f7fafc"></div>
+      <div class="form-group"><label>床位數</label><input type="number" id="er-beds" min="1" max="10"></div>
+    </div>
+    <div class="form-group"><label>房型</label>
+      <select id="er-type" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit">
+        <option>單人房</option><option>雙人房</option><option>三人房</option><option>四人房</option><option>多人房</option>
+      </select></div>
+    <div class="form-group"><label>備註</label><input id="er-note"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="removeRoomOccupants()">清空入住</button>
+      <button class="btn btn-cancel" onclick="closeModal('editRoom')">取消</button>
+      <button class="btn btn-success" onclick="saveRoom()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Label Modal -->
+<div class="modal-overlay" id="modal-addLabel">
+  <div class="modal" style="width:320px">
+    <h3>新增區域標籤</h3>
+    <div class="form-group"><label>標籤文字 *</label><input id="lbl-text" placeholder="例：倉庫、洗衣間"></div>
+    <div class="form-group"><label>背景顏色</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#e9d8fd|#805ad5" checked> 🟣 倉庫</label>
+        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#bee3f8|#3182ce"> 🔵 洗衣間</label>
+        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#fefcbf|#d69e2e"> 🟡 財產區</label>
+        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#fed7d7|#e53e3e"> 🔴 禁止</label>
+        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#c6f6d5|#38a169"> 🟢 其他</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('addLabel')">取消</button>
+      <button class="btn btn-success" onclick="addLabel()">新增到地圖</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Edit mode indicator -->
+<div id="edit-mode-bar">
+  <span>🔓 拖移模式：<span id="edit-room-count">0</span> 間房間已解鎖</span>
+  <button onclick="lockAllRooms()" style="background:rgba(255,255,255,.25);border:none;border-radius:12px;padding:3px 10px;cursor:pointer;color:white;font-size:11px;font-family:inherit">🔒 全部鎖定</button>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// FLOOR PLAN ROOM POSITIONS
+// Each entry: { x, y, w, h } as % of container width/height
+// Coordinates derived from the 5F floor plan image
+// ═══════════════════════════════════════════════════════════
+
+// ── Room positions calibrated to actual floor plan image ──
+// Coordinates as % of image container (left, top, width, height)
+// Derived from clean floor plan provided by user
+const FLOOR_ROOMS = {
+  '5F': {
+    // ── Left diagonal wing - OUTER wall (從上到下：518→502) ──
+    '518':{x:13,  y:4,   w:7.5,h:7},
+    '516':{x:10,  y:13,  w:7.5,h:7},
+    '514':{x:8,   y:22,  w:7.5,h:7},
+    '512':{x:5.5, y:31,  w:7.5,h:7},
+    '510':{x:4,   y:40,  w:7.5,h:7},
+    '508':{x:2.5, y:49,  w:7.5,h:7},
+    '506':{x:2,   y:57.5,w:7.5,h:7},
+    '504':{x:4.5, y:65,  w:7.5,h:7},
+    '502':{x:5,   y:72,  w:7.5,h:7},
+    // ── Left diagonal wing - INNER wall (從上到下：528→522) ──
+    '528':{x:40,  y:16,  w:7.5,h:7},
+    '526':{x:36,  y:27,  w:7.5,h:7},
+    '524':{x:33,  y:37,  w:7.5,h:7},
+    '522':{x:34,  y:46,  w:7.5,h:7},
+    // ── Junction & right section ──
+    '521':{x:43,  y:57,  w:7.5,h:7},
+    '523':{x:48,  y:66,  w:7.5,h:7},
+    '525':{x:56,  y:66,  w:7.5,h:7},
+    '527':{x:67,  y:66,  w:9,  h:7},
+    // ── Lower-center (501/503) ──
+    '501':{x:21,  y:67,  w:7.5,h:7},
+    '503':{x:24,  y:76,  w:7.5,h:7},
+    // ── Bottom wing (505→519) ──
+    '505':{x:30,  y:89,  w:7,  h:7},
+    '507':{x:38,  y:89,  w:7,  h:7},
+    '509':{x:46,  y:89,  w:7,  h:7},
+    '511':{x:54,  y:89,  w:7,  h:7},
+    '513':{x:62,  y:89,  w:7,  h:7},
+    '515':{x:70,  y:89,  w:7,  h:7},
+    '517':{x:78,  y:89,  w:7,  h:7},
+    '519':{x:86,  y:89,  w:7,  h:7},
+  },
+  '6F': {
+    // 6F 與 5F 相同格局，房號前綴改為 6
+    '618':{x:13,  y:4,   w:7.5,h:7},
+    '616':{x:10,  y:13,  w:7.5,h:7},
+    '614':{x:8,   y:22,  w:7.5,h:7},
+    '612':{x:5.5, y:31,  w:7.5,h:7},
+    '610':{x:4,   y:40,  w:7.5,h:7},
+    '608':{x:2.5, y:49,  w:7.5,h:7},
+    '606':{x:2,   y:57.5,w:7.5,h:7},
+    '604':{x:4.5, y:65,  w:7.5,h:7},
+    '602':{x:5,   y:72,  w:7.5,h:7},
+    '628':{x:40,  y:16,  w:7.5,h:7},
+    '626':{x:36,  y:27,  w:7.5,h:7},
+    '624':{x:33,  y:37,  w:7.5,h:7},
+    '622':{x:34,  y:46,  w:7.5,h:7},
+    '621':{x:43,  y:57,  w:7.5,h:7},
+    '623':{x:48,  y:66,  w:7.5,h:7},
+    '625':{x:56,  y:66,  w:7.5,h:7},
+    '627':{x:67,  y:66,  w:9,  h:7},
+    '601':{x:21,  y:67,  w:7.5,h:7},
+    '603':{x:24,  y:76,  w:7.5,h:7},
+    '605':{x:30,  y:89,  w:7,  h:7},
+    '607':{x:38,  y:89,  w:7,  h:7},
+    '609':{x:46,  y:89,  w:7,  h:7},
+    '611':{x:54,  y:89,  w:7,  h:7},
+    '613':{x:62,  y:89,  w:7,  h:7},
+    '615':{x:70,  y:89,  w:7,  h:7},
+    '617':{x:78,  y:89,  w:7,  h:7},
+    '619':{x:86,  y:89,  w:7,  h:7},
+  }
+};
+
+const FLOOR_IMG_KEY = { '5F':'floorImg_5F', '6F':'floorImg_6F' };
+
+// ─── State ────────────────────────────────────────
+let currentFloor = '5F';
+let selectedRoom  = null;
+let dragPersonId  = null;
+let mapZoom       = 1;
+
+// Drag-to-reposition state
+const draggableRooms = new Set(); // "5F:518", "6F:602" etc.
+let activeDrag = null; // { btn, roomId, floor, startX, startY, startLeft, startTop, cW, cH }
+
+let state = {
+  floors: { '5F': { rooms: {} }, '6F': { rooms: {} } },
+  persons: [],
+  schedules: [],
+  nextPersonId: 1,
+  customPositions: { '5F': {}, '6F': {} },
+  labels: { '5F': [], '6F': [] },
+  nextLabelId: 1
+};
+
+const BED_COUNTS = {
+  // 5F
+  '502':3,'504':3,'506':2,'508':2,'510':2,'512':2,'514':2,'516':2,'518':2,
+  '501':3,'503':3,
+  '521':4,'522':4,'523':2,'524':4,'525':3,'526':4,'527':3,'528':2,
+  '505':2,'507':2,'509':2,'511':2,'513':2,'515':2,'517':2,'519':2,
+  // 6F (same layout)
+  '602':3,'604':3,'606':2,'608':2,'610':2,'612':2,'614':2,'616':2,'618':2,
+  '601':3,'603':3,
+  '621':4,'622':4,'623':2,'624':4,'625':3,'626':4,'627':3,'628':2,
+  '605':2,'607':2,'609':2,'611':2,'613':2,'615':2,'617':2,'619':2,
+};
+
+function roomType(n) {
+  const b = BED_COUNTS[n] || 2;
+  return b<=1?'單人房':b<=2?'雙人房':b<=3?'三人房':'四人房';
+}
+
+function initFloor(floorId) {
+  const rooms = {};
+  const rpos = FLOOR_ROOMS[floorId] || {};
+  Object.keys(rpos).forEach(n => {
+    rooms[n] = { id:n, number:n, type:roomType(n), beds:Array(BED_COUNTS[n]||2).fill(null), note:'' };
+  });
+  return rooms;
+}
+
+function defaultLabels(fl) {
+  const prefix = fl === '5F' ? '5' : '6';
+  return [
+    { id:1, floor:fl, text:'倉庫',        x:23, y:3,   w:9, h:6.5, fill:'rgba(233,216,253,.85)', border:'#805ad5', color:'#44337a' },
+    { id:2, floor:fl, text:'洗衣間',       x:33, y:3,   w:9, h:6.5, fill:'rgba(190,227,248,.85)', border:'#3182ce', color:'#1a365d' },
+    { id:3, floor:fl, text:'洗衣間',       x:64, y:5,   w:9, h:6.5, fill:'rgba(190,227,248,.85)', border:'#3182ce', color:'#1a365d' },
+    { id:4, floor:fl, text:'租賃物\n財產區',x:74, y:5,  w:13,h:6.5, fill:'rgba(254,252,191,.88)', border:'#d69e2e', color:'#744210' },
+  ];
+}
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('tca_v4');
+    if (s) {
+      state = JSON.parse(s);
+      if(!state.schedules) state.schedules=[];
+      if(!state.customPositions) state.customPositions={};
+      if(!state.labels) state.labels = { '5F': defaultLabels('5F'), '6F': defaultLabels('6F') };
+      if(!state.nextLabelId) state.nextLabelId = 10;
+      return;
+    }
+  } catch(e){}
+  state.floors['5F'].rooms = initFloor('5F');
+  state.floors['6F'].rooms = initFloor('6F');
+  state.labels = { '5F': defaultLabels('5F'), '6F': defaultLabels('6F') };
+  state.nextLabelId = 10;
+  // Demo persons
+  [{name:'王大明',dept:'行政處',title:'科長',gender:'M'},
+   {name:'李小華',dept:'訓練組',title:'教官',gender:'M'},
+   {name:'陳美玲',dept:'後勤處',title:'主任',gender:'F'},
+   {name:'張志遠',dept:'研究室',title:'研究員',gender:'M'},
+   {name:'林淑芬',dept:'行政處',title:'專員',gender:'F'}
+  ].forEach(d=>{ d.id=state.nextPersonId++;d.assignedFloor=null;d.assignedRoom=null;d.assignedBed=null;d.phone='';d.note='';state.persons.push(d); });
+}
+function saveState() { localStorage.setItem('tca_v4', JSON.stringify(state)); }
+
+// Stored images (base64)
+const imgCache = {};
+
+function loadImgCache() {
+  ['5F','6F'].forEach(f => {
+    const k = FLOOR_IMG_KEY[f];
+    const v = localStorage.getItem(k);
+    if (v) imgCache[f] = v;
+  });
+}
+
+// Auto-cache floor plan images from server on first load
+// Converts the PNG files to base64 and stores permanently in localStorage
+function autoCacheFloorImgs() {
+  const files = { '5F': '5f.jpg', '6F': '6f.jpg' };
+  Object.entries(files).forEach(([floor, filename]) => {
+    const key = FLOOR_IMG_KEY[floor];
+    if (localStorage.getItem(key)) return; // already cached
+    fetch(filename)
+      .then(r => { if(!r.ok) throw new Error('not found'); return r.blob(); })
+      .then(blob => new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result);
+        reader.onerror = rej;
+        reader.readAsDataURL(blob);
+      }))
+      .then(dataUrl => {
+        localStorage.setItem(key, dataUrl);
+        imgCache[floor] = dataUrl;
+        buildMap(); // rebuild with image now cached
+        toast(`${floor} 底圖已永久固定到本機 ✓`);
+      })
+      .catch(() => {}); // silent fail if file not on server
+  });
+}
+
+// ─── Utils ────────────────────────────────────────
+const COLORS = ['#3182ce','#38a169','#d69e2e','#e53e3e','#805ad5','#dd6b20','#319795','#d53f8c'];
+const avColor = id => COLORS[id % COLORS.length];
+const avLetter = name => name ? name[0] : '?';
+
+function toast(msg, type='success') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+(type==='err'?'error':'success');
+  setTimeout(()=>t.className='toast',2600);
+}
+function openModal(id) {
+  if(id==='addSchedule') prepScheduleModal();
+  if(id==='editRoom' && selectedRoom) prepEditRoomModal();
+  document.getElementById('modal-'+id).classList.add('show');
+}
+function closeModal(id) { document.getElementById('modal-'+id).classList.remove('show'); }
+
+function getRoomStatus(room) {
+  const o = room.beds.filter(b=>b!==null).length;
+  return o===0?'empty':o>=room.beds.length?'full':'partial';
+}
+
+function getRoomGenderStatus(room) {
+  const occupied = room.beds.filter(pid => pid !== null);
+  if (!occupied.length) return 'none';
+  const persons = occupied.map(pid => state.persons.find(p => p.id === pid)).filter(Boolean);
+  return persons.some(p => p.gender === 'F') ? 'female' : 'male';
+}
+
+// ─── Floor switching ───────────────────────────────
+function switchFloor(f) {
+  currentFloor = f;
+  selectedRoom = null;
+  document.querySelectorAll('.floor-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('floortab-'+f).classList.add('active');
+  document.getElementById('header-floor-label').textContent = f+' 平面配置管理';
+  document.getElementById('stats-floor-label').textContent = f+' 統計';
+  document.getElementById('rooms-floor-label').textContent = f+' 房間';
+  document.getElementById('sched-floor-label').textContent = f+' 排程';
+  document.getElementById('panel-title').textContent = '選擇房間查看詳情';
+  document.getElementById('btn-edit-room').style.display='none';
+  document.getElementById('room-detail-body').innerHTML = '<div class="empty-state"><div style="font-size:38px;margin-bottom:8px">🏠</div>點擊地圖上的房間<br>或左側房間列表<br>以查看配置詳情</div>';
+  // Update schedule modal floor select
+  const sf = document.getElementById('s-floor');
+  if(sf) sf.value = f;
+  renderAll();
+}
+
+// ─── Tabs ─────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='persons') renderPersonList();
+  if(tab==='rooms') renderRoomList();
+  if(tab==='schedule') renderScheduleSidebar();
+  if(tab==='stats') renderStats();
+}
+
+// ─── Stats ────────────────────────────────────────
+function renderStats() {
+  const rooms = Object.values(state.floors[currentFloor].rooms);
+  let total=0,occ=0,used=0;
+  rooms.forEach(r=>{total+=r.beds.length;const o=r.beds.filter(b=>b!==null).length;occ+=o;if(o>0)used++;});
+  const pct=total>0?Math.round(occ/total*100):0;
+  document.getElementById('stat-total-beds').textContent=total;
+  document.getElementById('stat-occupied').textContent=occ;
+  document.getElementById('stat-rooms').textContent=used;
+  document.getElementById('stat-available').textContent=total-occ;
+  document.getElementById('occ-bar').style.width=pct+'%';
+  document.getElementById('occ-pct').textContent=pct+'%';
+  const types={};
+  rooms.forEach(r=>types[r.type]=(types[r.type]||0)+1);
+  document.getElementById('room-type-stats').innerHTML=Object.entries(types).map(([t,c])=>
+    `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f0f0"><span>${t}</span><span style="font-weight:600">${c}間</span></div>`
+  ).join('');
+  const today=new Date().toISOString().slice(0,10);
+  const ts=state.schedules.filter(s=>s.floor===currentFloor&&s.checkIn<=today&&s.checkOut>=today);
+  const todayEl=document.getElementById('today-schedule');
+  todayEl.innerHTML=ts.length===0
+    ?'<div style="color:#a0aec0;text-align:center;padding:6px">今日無排程</div>'
+    :ts.slice(0,5).map(s=>{const p=state.persons.find(x=>x.id===s.personId);
+      return`<div class="sched-row"><div class="sched-dot" style="background:${avColor(s.personId||0)}"></div><div><div>${p?p.name:'?'} → ${s.roomId}</div><div style="color:#718096">${s.checkIn}~${s.checkOut}</div></div></div>`;
+    }).join('');
+}
+
+// ─── Persons ──────────────────────────────────────
+function renderPersonList() {
+  const q=(document.getElementById('person-search').value||'').toLowerCase();
+  const list=state.persons.filter(p=>p.name.toLowerCase().includes(q)||(p.dept||'').toLowerCase().includes(q));
+  const el=document.getElementById('person-list');
+  if(!list.length){el.innerHTML='<div class="empty-state">無人員資料</div>';return;}
+  el.innerHTML=list.map(p=>{
+    const assigned=p.assignedRoom?`${p.assignedFloor||''} ${p.assignedRoom}`:'未分配';
+    return`<div class="person-item" draggable="true"
+      ondragstart="onPersonDragStart(event,${p.id})" ondragend="onPersonDragEnd(event)">
+      <div class="person-avatar" style="background:${avColor(p.id)}">${avLetter(p.name)}</div>
+      <div class="person-info">
+        <div class="person-name">${p.name}${p.gender==='F'?'<span style="font-size:9px;margin-left:4px;color:#d53f8c">♀</span>':''}</div>
+        <div class="person-dept">${p.dept||''}${p.title?' · '+p.title:''}</div>
+        ${p.classPeriod?`<div style="font-size:10px;color:#3182ce;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.classPeriod}</div>`:''}
+        <div style="font-size:10px;color:${p.assignedRoom?'#38a169':'#a0aec0'}">${assigned}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removePerson(${p.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function addPerson() {
+  const name=document.getElementById('p-name').value.trim();
+  if(!name){toast('請輸入姓名','err');return;}
+  const p={id:state.nextPersonId++,name,
+    classPeriod:document.getElementById('p-class').value.trim(),
+    dept:document.getElementById('p-dept').value.trim(),
+    title:document.getElementById('p-title').value.trim(),gender:document.getElementById('p-gender').value,
+    phone:document.getElementById('p-phone').value.trim(),note:document.getElementById('p-note').value.trim(),
+    assignedFloor:null,assignedRoom:null,assignedBed:null};
+  state.persons.push(p);saveState();closeModal('addPerson');renderAll();toast(`已新增：${name}`);
+  ['p-name','p-class','p-dept','p-title','p-phone','p-note'].forEach(id=>document.getElementById(id).value='');
+}
+
+function removePerson(id) {
+  const p=state.persons.find(x=>x.id===id);
+  if(p&&p.assignedRoom){
+    const fl=state.floors[p.assignedFloor||currentFloor];
+    if(fl){const r=fl.rooms[p.assignedRoom];if(r)r.beds[p.assignedBed]=null;}
+  }
+  state.persons=state.persons.filter(x=>x.id!==id);
+  state.schedules=state.schedules.filter(x=>x.personId!==id);
+  saveState();renderAll();if(selectedRoom)renderRoomDetail(selectedRoom);toast('已移除人員');
+}
+
+// ─── Rooms ────────────────────────────────────────
+function renderRoomList() {
+  const q=(document.getElementById('room-filter').value||'').toLowerCase();
+  const rooms=Object.values(state.floors[currentFloor].rooms)
+    .filter(r=>r.number.includes(q)||r.type.toLowerCase().includes(q))
+    .sort((a,b)=>a.number.localeCompare(b.number,undefined,{numeric:true}));
+  const el=document.getElementById('room-list');
+  el.innerHTML=rooms.map(r=>{
+    const o=r.beds.filter(b=>b!==null).length;
+    const s=getRoomStatus(r);
+    const isFemale = getRoomGenderStatus(r)==='female';
+    const badgeStyle = isFemale ? 'background:#fce7f3;color:#b83280;border:1px solid #d53f8c' : '';
+    const badgeLabel = isFemale
+      ? (s==='empty'?'空房(♀)':s==='full'?'客滿(♀)':'部分(♀)')
+      : (s==='empty'?'空房':s==='full'?'客滿':'部分');
+    return`<div class="room-item-sb" onclick="selectRoom('${r.id}')">
+      <div><div style="font-weight:600">${r.number}</div><div style="color:#718096;font-size:10px">${r.type}·${r.beds.length}床</div></div>
+      <div style="text-align:right">
+        <div class="room-badge badge-${s}" style="${badgeStyle}">${badgeLabel}</div>
+        <div style="font-size:10px;color:#718096;margin-top:1px">${o}/${r.beds.length}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addRoom() {
+  const num=document.getElementById('r-num').value.trim();
+  const beds=parseInt(document.getElementById('r-beds').value)||2;
+  if(!num){toast('請輸入房號','err');return;}
+  if(state.floors[currentFloor].rooms[num]){toast('房號已存在','err');return;}
+  state.floors[currentFloor].rooms[num]={id:num,number:num,type:document.getElementById('r-type').value,beds:Array(beds).fill(null),note:document.getElementById('r-note').value.trim()};
+  saveState();closeModal('addRoom');renderAll();toast(`已新增房間 ${num}`);
+}
+
+function prepEditRoomModal() {
+  const r=state.floors[currentFloor].rooms[selectedRoom];if(!r)return;
+  document.getElementById('er-id').value=r.id;document.getElementById('er-num').value=r.number;
+  document.getElementById('er-beds').value=r.beds.length;document.getElementById('er-type').value=r.type;
+  document.getElementById('er-note').value=r.note||'';
+}
+
+function saveRoom() {
+  const id=document.getElementById('er-id').value;
+  const r=state.floors[currentFloor].rooms[id];if(!r)return;
+  const nb=parseInt(document.getElementById('er-beds').value)||2;
+  r.type=document.getElementById('er-type').value;r.note=document.getElementById('er-note').value.trim();
+  while(r.beds.length<nb)r.beds.push(null);
+  while(r.beds.length>nb){const pid=r.beds.pop();if(pid){const p=state.persons.find(x=>x.id===pid);if(p){p.assignedRoom=null;p.assignedBed=null;p.assignedFloor=null;}}}
+  saveState();closeModal('editRoom');renderAll();renderRoomDetail(id);toast('已更新');
+}
+
+function removeRoomOccupants() {
+  const r=state.floors[currentFloor].rooms[selectedRoom];if(!r)return;
+  r.beds.forEach((pid,i)=>{if(pid){const p=state.persons.find(x=>x.id===pid);if(p){p.assignedRoom=null;p.assignedBed=null;p.assignedFloor=null;}r.beds[i]=null;}});
+  state.schedules=state.schedules.filter(s=>!(s.roomId===selectedRoom&&s.floor===currentFloor));
+  saveState();closeModal('editRoom');renderAll();renderRoomDetail(selectedRoom);toast('已清空入住');
+}
+
+// ─── Schedule ─────────────────────────────────────
+function prepScheduleModal() {
+  document.getElementById('s-person').innerHTML=state.persons.map(p=>`<option value="${p.id}">${p.name}(${p.dept||'—'})</option>`).join('');
+  document.getElementById('s-floor').value=currentFloor;
+  updateSRoomSelect();
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('s-checkin').value=today;
+  document.getElementById('s-checkout').value=new Date(Date.now()+86400000).toISOString().slice(0,10);
+}
+
+function updateSRoomSelect() {
+  const f=document.getElementById('s-floor').value;
+  const rooms=Object.values(state.floors[f]?.rooms||{}).sort((a,b)=>a.number.localeCompare(b.number,undefined,{numeric:true}));
+  document.getElementById('s-room').innerHTML=rooms.map(r=>{
+    const av=r.beds.filter(b=>b===null).length;
+    return`<option value="${r.id}" ${av===0?'disabled':''}>房間${r.number}(${r.type})剩${av}床</option>`;
+  }).join('');
+  if(f===currentFloor && selectedRoom) document.getElementById('s-room').value=selectedRoom;
+  updateBedSelect();
+}
+
+function updateBedSelect() {
+  const f=document.getElementById('s-floor').value;
+  const rId=document.getElementById('s-room').value;
+  const room=state.floors[f]?.rooms[rId];
+  const sel=document.getElementById('s-bed');
+  if(!room){sel.innerHTML='';return;}
+  sel.innerHTML=room.beds.map((pid,i)=>`<option value="${i}" ${pid!==null?'disabled':''}>床位 ${i+1}${pid!==null?' (已佔)':''}</option>`).join('');
+}
+
+function addSchedule() {
+  const pid=parseInt(document.getElementById('s-person').value);
+  const f=document.getElementById('s-floor').value;
+  const rId=document.getElementById('s-room').value;
+  const ci=document.getElementById('s-checkin').value;
+  const co=document.getElementById('s-checkout').value;
+  const bi=parseInt(document.getElementById('s-bed').value);
+  if(!ci||!co){toast('請填寫日期','err');return;}
+  if(ci>=co){toast('退房須晚於入住','err');return;}
+  const room=state.floors[f]?.rooms[rId];if(!room){toast('請選擇房間','err');return;}
+  if(room.beds[bi]!==null){toast('此床位已有人','err');return;}
+  const p=state.persons.find(x=>x.id===pid);
+  if(p&&p.assignedRoom){
+    const of=state.floors[p.assignedFloor];
+    if(of){const or=of.rooms[p.assignedRoom];if(or)or.beds[p.assignedBed]=null;}
+  }
+  room.beds[bi]=pid;
+  if(p){p.assignedRoom=rId;p.assignedBed=bi;p.assignedFloor=f;}
+  state.schedules.push({id:Date.now(),personId:pid,floor:f,roomId:rId,checkIn:ci,checkOut:co,bedIdx:bi,note:document.getElementById('s-note').value.trim()});
+  saveState();closeModal('addSchedule');renderAll();
+  if(f===currentFloor&&selectedRoom===rId) renderRoomDetail(rId);
+  toast(`${p?p.name:''} 已排定入住 ${f} 房間${rId}`);
+}
+
+function renderScheduleSidebar() {
+  const fd=document.getElementById('filter-date').value;
+  let list=state.schedules.filter(s=>s.floor===currentFloor);
+  if(fd) list=list.filter(s=>s.checkIn<=fd&&s.checkOut>=fd);
+  list.sort((a,b)=>a.checkIn.localeCompare(b.checkIn));
+  const el=document.getElementById('schedule-list');
+  if(!list.length){el.innerHTML='<div class="empty-state">無排程資料</div>';return;}
+  el.innerHTML=list.map(s=>{
+    const p=state.persons.find(x=>x.id===s.personId);
+    return`<div class="sched-row">
+      <div class="sched-dot" style="background:${avColor(s.personId||0)}"></div>
+      <div style="flex:1">
+        <div style="font-weight:500">${p?p.name:'(已刪除)'}</div>
+        <div style="color:#718096;font-size:10px">房間${s.roomId}·床${(s.bedIdx||0)+1}</div>
+        <div style="color:#a0aec0;font-size:10px">${s.checkIn}~${s.checkOut}</div>
+        ${s.note?`<div style="color:#a0aec0;font-size:10px">${s.note}</div>`:''}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removeSchedule(${s.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function removeSchedule(id) {
+  const s=state.schedules.find(x=>x.id===id);
+  if(s){
+    const fl=state.floors[s.floor];
+    if(fl){const r=fl.rooms[s.roomId];if(r&&r.beds[s.bedIdx]===s.personId)r.beds[s.bedIdx]=null;}
+    const p=state.persons.find(x=>x.id===s.personId);
+    if(p&&p.assignedRoom===s.roomId&&p.assignedFloor===s.floor){p.assignedRoom=null;p.assignedBed=null;p.assignedFloor=null;}
+  }
+  state.schedules=state.schedules.filter(x=>x.id!==id);
+  saveState();renderAll();if(selectedRoom)renderRoomDetail(selectedRoom);
+}
+
+// ─── Right-click Context Menu ─────────────────────
+function showRoomCtxMenu(e, roomId, floor) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  // Remove any existing menu
+  const old = document.getElementById('room-ctx-menu');
+  if (old) old.remove();
+
+  const key = `${floor}:${roomId}`;
+  const isDraggable = draggableRooms.has(key);
+
+  const menu = document.createElement('div');
+  menu.id = 'room-ctx-menu';
+  menu.style.left = Math.min(e.clientX, window.innerWidth-180) + 'px';
+  menu.style.top  = Math.min(e.clientY, window.innerHeight-200) + 'px';
+
+  const items = [
+    { icon:'🏠', text:'查看房間詳情', action:()=>selectRoom(roomId) },
+    { sep: true },
+    isDraggable
+      ? { icon:'🔒', text:'鎖定位置',   cls:'red',    action:()=>{ lockRoom(key); closeCtx(); } }
+      : { icon:'🔓', text:'允許拖移',   cls:'green',  action:()=>{ unlockRoom(key); closeCtx(); } },
+    { icon:'↩️', text:'重置原始位置', cls:'orange', action:()=>{ resetRoomPos(roomId, floor); closeCtx(); } },
+    { icon:'🔄', text:'重置旋轉角度', cls:'orange', action:()=>{ resetRoomRotation(roomId, floor); closeCtx(); } },
+    { sep: true },
+    { icon:'✏️', text:'編輯房間資料', action:()=>{ selectRoom(roomId); openModal('editRoom'); closeCtx(); } },
+    { sep: true },
+    { icon:'🗑️', text:'刪除此房間',  cls:'red', action:()=>{ closeCtx(); deleteRoom(roomId, floor); } },
+  ];
+
+  items.forEach(item => {
+    if (item.sep) {
+      const d = document.createElement('div'); d.className='ctx-sep';
+      menu.appendChild(d); return;
+    }
+    const b = document.createElement('button');
+    b.className = 'ctx-item' + (item.cls ? ' '+item.cls : '');
+    b.innerHTML = `<span>${item.icon}</span><span>${item.text}</span>`;
+    b.onclick = item.action;
+    menu.appendChild(b);
+  });
+
+  document.body.appendChild(menu);
+
+  function closeCtx() {
+    const m = document.getElementById('room-ctx-menu');
+    if (m) m.remove();
+    document.removeEventListener('mousedown', outsideClose);
+  }
+  function outsideClose(ev) {
+    const m = document.getElementById('room-ctx-menu');
+    if (m && !m.contains(ev.target)) closeCtx();
+  }
+  setTimeout(()=>document.addEventListener('mousedown', outsideClose), 0);
+}
+
+// ─── Drag-to-reposition ───────────────────────────
+function unlockRoom(key) {
+  draggableRooms.add(key);
+  updateEditBar();
+  buildMap();
+  toast('已解鎖拖移 — 按住左鍵移動房間按鈕');
+}
+
+function lockRoom(key) {
+  draggableRooms.delete(key);
+  updateEditBar();
+  buildMap();
+  toast('位置已鎖定儲存');
+}
+
+function lockAllRooms() {
+  draggableRooms.clear();
+  updateEditBar();
+  buildMap();
+  toast('所有房間已鎖定');
+}
+
+function resetRoomPos(roomId, floor) {
+  if (!state.customPositions) state.customPositions = {};
+  if (state.customPositions[floor]) delete state.customPositions[floor][roomId];
+  saveState();
+  buildMap();
+  toast(`${roomId} 已重置至原始位置`);
+}
+
+function resetRoomRotation(roomId, floor) {
+  if (!state.customPositions?.[floor]?.[roomId]) return;
+  state.customPositions[floor][roomId].r = 0;
+  saveState();
+  buildMap();
+  toast(`${roomId} 旋轉已重置`);
+}
+
+// ── Room Resize handle ─────────────────────────────
+function addResizeHandleToRoom(btn, roomId, fl, anchor) {
+  const handle = document.createElement('div');
+  handle.className = 'room-resize-handle';
+  handle.innerHTML = '⤡';
+
+  let resizing = false, startX, startY, startW, startH, anchorW, anchorH;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    resizing = true;
+    startX = e.clientX; startY = e.clientY;
+    const pos = getRoomPos(roomId, fl);
+    startW = pos?.w || 7.5; startH = pos?.h || 7;
+    const aRect = anchor.getBoundingClientRect();
+    anchorW = aRect.width; anchorH = aRect.height;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    if (!resizing) return;
+    const dw = (e.clientX - startX) / anchorW * 100;
+    const dh = (e.clientY - startY) / anchorH * 100;
+    btn.style.width  = Math.max(4, startW + dw) + '%';
+    btn.style.height = Math.max(3, startH + dh) + '%';
+  }
+
+  function onUp() {
+    if (!resizing) return;
+    resizing = false;
+    const newW = parseFloat(btn.style.width);
+    const newH = parseFloat(btn.style.height);
+    if (!state.customPositions) state.customPositions = {};
+    if (!state.customPositions[fl]) state.customPositions[fl] = {};
+    const cur  = state.customPositions[fl][roomId] || {};
+    const orig = FLOOR_ROOMS[fl]?.[roomId] || {};
+    state.customPositions[fl][roomId] = { x: cur.x ?? orig.x ?? 0, y: cur.y ?? orig.y ?? 0, w: newW, h: newH, r: cur.r || 0 };
+    saveState();
+    toast(`${roomId} 大小已儲存`);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
+  btn.appendChild(handle);
+}
+
+// ── Room Rotate handle ─────────────────────────────
+function addRotateHandleToRoom(btn, roomId, fl) {
+  const handle = document.createElement('div');
+  handle.className = 'room-rotate-handle';
+  handle.innerHTML = '↻';
+  handle.title = '拖移旋轉';
+
+  let rotating = false, startAngle = 0, startR = 0, cx = 0, cy = 0;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    rotating = true;
+    const r = btn.getBoundingClientRect();
+    cx = r.left + r.width / 2;
+    cy = r.top  + r.height / 2;
+    startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+    startR = getRoomPos(roomId, fl)?.r || 0;
+    handle.style.cursor = 'grabbing';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    if (!rotating) return;
+    const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+    const newR = startR + (angle - startAngle);
+    btn.style.transform = `rotate(${newR}deg)`;
+    btn.style.transformOrigin = 'center center';
+  }
+
+  function onUp() {
+    if (!rotating) return;
+    rotating = false;
+    handle.style.cursor = 'grab';
+    const m = btn.style.transform.match(/rotate\(([-\d.]+)deg\)/);
+    const finalR = m ? parseFloat(m[1]) : 0;
+    if (!state.customPositions) state.customPositions = {};
+    if (!state.customPositions[fl]) state.customPositions[fl] = {};
+    const cur  = state.customPositions[fl][roomId] || {};
+    const orig = FLOOR_ROOMS[fl]?.[roomId] || {};
+    state.customPositions[fl][roomId] = { x: cur.x ?? orig.x ?? 0, y: cur.y ?? orig.y ?? 0, w: cur.w || orig.w || 7.5, h: cur.h || orig.h || 7, r: finalR };
+    saveState();
+    toast(`${roomId} 旋轉 ${finalR.toFixed(0)}° 已儲存`);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
+  btn.appendChild(handle);
+}
+
+// ─── Delete Room ──────────────────────────────────
+function deleteRoom(roomId, fl) {
+  const room = state.floors[fl]?.rooms[roomId];
+  if (!room) return;
+  const occ = room.beds.filter(b => b !== null).length;
+  const msg = occ > 0
+    ? `房間 ${roomId} 目前有 ${occ} 位住客，確定要刪除？`
+    : `確定要刪除房間 ${roomId}？`;
+  if (!confirm(msg)) return;
+
+  // Unassign persons
+  state.persons.forEach(p => {
+    if (p.assignedRoom === roomId && p.assignedFloor === fl) {
+      p.assignedRoom = null; p.assignedBed = null; p.assignedFloor = null;
+    }
+  });
+  // Remove schedules
+  state.schedules = state.schedules.filter(s => !(s.roomId === roomId && s.floor === fl));
+  // Remove room
+  delete state.floors[fl].rooms[roomId];
+  // Remove from runtime FLOOR_ROOMS
+  if (FLOOR_ROOMS[fl]) delete FLOOR_ROOMS[fl][roomId];
+  // Remove custom position
+  if (state.customPositions?.[fl]) delete state.customPositions[fl][roomId];
+  // Deselect if needed
+  if (selectedRoom === roomId) {
+    selectedRoom = null;
+    document.getElementById('panel-title').textContent = '選擇房間查看詳情';
+    document.getElementById('btn-edit-room').style.display = 'none';
+    document.getElementById('room-detail-body').innerHTML =
+      '<div class="empty-state"><div style="font-size:38px;margin-bottom:8px">🏠</div>點擊地圖上的房間<br>或左側房間列表<br>以查看配置詳情</div>';
+  }
+  saveState(); renderAll();
+  toast(`房間 ${roomId} 已刪除`);
+}
+
+function updateEditBar() {
+  const bar = document.getElementById('edit-mode-bar');
+  const cnt = draggableRooms.size;
+  document.getElementById('edit-room-count').textContent = cnt;
+  bar.classList.toggle('show', cnt > 0);
+}
+
+function getRoomPos(roomId, floor) {
+  const base   = FLOOR_ROOMS[floor]?.[roomId];
+  const custom = state.customPositions?.[floor]?.[roomId];
+  if (custom) return { ...base, ...custom };
+  return base;
+}
+
+function saveCustomPos(roomId, floor, x, y) {
+  if (!state.customPositions) state.customPositions = {};
+  if (!state.customPositions[floor]) state.customPositions[floor] = {};
+  const orig = FLOOR_ROOMS[floor]?.[roomId] || {};
+  const cur  = state.customPositions[floor][roomId] || {};
+  state.customPositions[floor][roomId] = {
+    x, y,
+    w: cur.w || orig.w || 7.5,
+    h: cur.h || orig.h || 7,
+    r: cur.r || 0,   // preserve rotation
+  };
+  saveState();
+}
+
+// (addDragToRoom is defined above in the Labels section)
+
+// ─── Labels (倉庫 / 洗衣間 etc.) ──────────────────
+function addLabel() {
+  const text = document.getElementById('lbl-text').value.trim();
+  if (!text) { toast('請輸入標籤文字', 'err'); return; }
+  const colorVal = document.querySelector('input[name="lbl-color"]:checked').value;
+  const [fill, border] = colorVal.split('|');
+  const lbl = {
+    id: state.nextLabelId++,
+    floor: currentFloor,
+    text,
+    x: 45, y: 45,  // default center
+    w: Math.max(9, text.length * 2.5),
+    h: 6.5,
+    fill: fill === '#e9d8fd' ? 'rgba(233,216,253,.85)'
+        : fill === '#bee3f8' ? 'rgba(190,227,248,.85)'
+        : fill === '#fefcbf' ? 'rgba(254,252,191,.88)'
+        : fill === '#fed7d7' ? 'rgba(254,215,215,.88)'
+        : 'rgba(198,246,213,.82)',
+    border,
+    color: '#2d3748'
+  };
+  if (!state.labels) state.labels = {};
+  if (!state.labels[currentFloor]) state.labels[currentFloor] = [];
+  state.labels[currentFloor].push(lbl);
+  saveState();
+  closeModal('addLabel');
+  document.getElementById('lbl-text').value = '';
+  buildMap();
+  toast(`已新增標籤「${text}」，右鍵可拖移`);
+}
+
+function renderLabels(anchor, fl) {
+  const lbls = state.labels?.[fl] || [];
+  lbls.forEach(lbl => {
+    const el = document.createElement('div');
+    el.className = 'area-label';
+    el.dataset.labelId = lbl.id;
+    el.style.left   = lbl.x + '%';
+    el.style.top    = lbl.y + '%';
+    el.style.width  = lbl.w + '%';
+    el.style.height = lbl.h + '%';
+    el.style.background = lbl.fill;
+    el.style.borderColor = lbl.border;
+    el.style.color = lbl.color || '#2d3748';
+    el.style.whiteSpace = 'pre-line';
+    el.textContent = lbl.text;
+    // Apply stored rotation
+    if (lbl.r) { el.style.transform = `rotate(${lbl.r}deg)`; el.style.transformOrigin = 'center center'; }
+
+    const key = `lbl:${fl}:${lbl.id}`;
+
+    // Right-click context menu
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault(); e.stopPropagation();
+      const old = document.getElementById('room-ctx-menu'); if(old) old.remove();
+      const isDrag = draggableRooms.has(key);
+      const menu = document.createElement('div');
+      menu.id = 'room-ctx-menu';
+      menu.style.left = Math.min(e.clientX, window.innerWidth-180)+'px';
+      menu.style.top  = Math.min(e.clientY, window.innerHeight-200)+'px';
+      const items = isDrag ? [
+        // ── Unlocked mode: show drag & resize & rotate hints + lock option ──
+        { header: '拖移模式已開啟' },
+        { icon:'↖↘', text:'拖移標籤主體 → 移動位置',  hint:true },
+        { icon:'⤡',  text:'拖移右下角 ⤡ → 調整大小', hint:true },
+        { icon:'↻',  text:'拖移頂部 ↻ → 旋轉角度',   hint:true },
+        { sep:true },
+        { icon:'🔒', text:'鎖定位置', cls:'red',
+          action:()=>{ draggableRooms.delete(key); updateEditBar(); buildMap(); closeCtxMenu(); }},
+        { icon:'🔄', text:'重置旋轉角度', cls:'orange',
+          action:()=>{ lbl.r = 0; saveState(); buildMap(); closeCtxMenu(); toast('標籤旋轉已重置'); }},
+        { sep:true },
+        { icon:'✏️', text:'編輯文字', action:()=>{ closeCtxMenu(); editLabelText(lbl.id, fl); }},
+        { icon:'🗑️', text:'刪除標籤', cls:'red', action:()=>{ closeCtxMenu(); deleteLabel(lbl.id, fl); }},
+      ] : [
+        // ── Locked mode ──
+        { icon:'🔓', text:'允許拖移', cls:'green',
+          action:()=>{ draggableRooms.add(key); updateEditBar(); buildMap(); closeCtxMenu(); }},
+        { icon:'✏️', text:'編輯文字', action:()=>{ closeCtxMenu(); editLabelText(lbl.id, fl); }},
+        { sep:true },
+        { icon:'🗑️', text:'刪除標籤', cls:'red', action:()=>{ closeCtxMenu(); deleteLabel(lbl.id, fl); }},
+      ];
+      items.forEach(item=>{
+        if(item.sep){const d=document.createElement('div');d.className='ctx-sep';menu.appendChild(d);return;}
+        if(item.header){
+          const h=document.createElement('div');
+          h.style.cssText='padding:5px 15px 3px;font-size:10px;font-weight:700;color:#3182ce;letter-spacing:.5px;text-transform:uppercase';
+          h.textContent=item.text||item.header; menu.appendChild(h); return;
+        }
+        if(item.hint){
+          const h=document.createElement('div');
+          h.style.cssText='display:flex;align-items:center;gap:8px;padding:5px 15px;font-size:12px;color:#718096;background:#f7fafc';
+          h.innerHTML=`<span style="font-size:14px;min-width:18px;text-align:center">${item.icon}</span><span>${item.text}</span>`;
+          menu.appendChild(h); return;
+        }
+        const b=document.createElement('button');b.className='ctx-item'+(item.cls?' '+item.cls:'');
+        b.innerHTML=`<span>${item.icon}</span><span>${item.text}</span>`;b.onclick=item.action;menu.appendChild(b);
+      });
+      document.body.appendChild(menu);
+      function closeCtxMenu(){ const m=document.getElementById('room-ctx-menu');if(m)m.remove(); document.removeEventListener('mousedown',outside); }
+      function outside(ev){ const m=document.getElementById('room-ctx-menu');if(m&&!m.contains(ev.target))closeCtxMenu(); }
+      setTimeout(()=>document.addEventListener('mousedown',outside),0);
+    });
+
+    // Double-click to edit text
+    el.addEventListener('dblclick', e => { e.stopPropagation(); editLabelText(lbl.id, fl); });
+
+    // Drag + resize + rotate if enabled
+    if (draggableRooms.has(key)) {
+      el.classList.add('drag-enabled');
+      addDragToRoom(el, key, fl, anchor);
+      addResizeHandle(el, lbl, fl, anchor);
+      addRotateLabelHandle(el, lbl, fl);
+    }
+
+    anchor.appendChild(el);
+  });
+}
+
+function addResizeHandle(el, lbl, fl, anchor) {
+  const handle = document.createElement('div');
+  handle.className = 'resize-handle';
+  handle.title = '拖移調整大小';
+  handle.style.background = lbl.border;
+  handle.innerHTML = '⤡';
+
+  let resizing = false, startX, startY, startW, startH, anchorW, anchorH;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    resizing = true;
+    startX = e.clientX; startY = e.clientY;
+    startW = lbl.w; startH = lbl.h;
+    const aRect = anchor.getBoundingClientRect();
+    anchorW = aRect.width; anchorH = aRect.height;
+    document.addEventListener('mousemove', onResizeMove);
+    document.addEventListener('mouseup', onResizeEnd);
+  });
+
+  function onResizeMove(e) {
+    if (!resizing) return;
+    const dw = (e.clientX - startX) / anchorW * 100;
+    const dh = (e.clientY - startY) / anchorH * 100;
+    lbl.w = Math.max(5, startW + dw);
+    lbl.h = Math.max(3, startH + dh);
+    el.style.width  = lbl.w + '%';
+    el.style.height = lbl.h + '%';
+  }
+
+  function onResizeEnd() {
+    if (!resizing) return;
+    resizing = false;
+    saveState();
+    toast(`標籤大小已儲存`);
+    document.removeEventListener('mousemove', onResizeMove);
+    document.removeEventListener('mouseup', onResizeEnd);
+  }
+
+  el.appendChild(handle);
+}
+
+// ── Label rotate handle ───────────────────────────
+function addRotateLabelHandle(el, lbl, fl) {
+  const handle = document.createElement('div');
+  handle.className = 'room-rotate-handle';  // reuse same CSS style
+  handle.innerHTML = '↻';
+  handle.title = '拖移旋轉';
+
+  let rotating = false, startAngle = 0, startR = 0, cx = 0, cy = 0;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    rotating = true;
+    const r = el.getBoundingClientRect();
+    cx = r.left + r.width / 2;
+    cy = r.top  + r.height / 2;
+    startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+    startR = lbl.r || 0;
+    handle.style.cursor = 'grabbing';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    if (!rotating) return;
+    const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+    const newR = startR + (angle - startAngle);
+    el.style.transform = `rotate(${newR}deg)`;
+    el.style.transformOrigin = 'center center';
+  }
+
+  function onUp() {
+    if (!rotating) return;
+    rotating = false;
+    handle.style.cursor = 'grab';
+    const m = el.style.transform.match(/rotate\(([-\d.]+)deg\)/);
+    lbl.r = m ? parseFloat(m[1]) : 0;
+    saveState();
+    toast(`標籤旋轉 ${lbl.r.toFixed(0)}° 已儲存`);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
+  el.appendChild(handle);
+}
+
+function editLabelText(labelId, fl) {
+  const lbl = (state.labels?.[fl] || []).find(l => l.id === labelId);
+  if (!lbl) return;
+  const newText = prompt('編輯標籤文字：', lbl.text);
+  if (newText !== null && newText.trim()) {
+    lbl.text = newText.trim();
+    saveState(); buildMap(); toast('標籤已更新');
+  }
+}
+
+function deleteLabel(labelId, fl) {
+  if (!state.labels?.[fl]) return;
+  state.labels[fl] = state.labels[fl].filter(l => l.id !== labelId);
+  saveState(); buildMap(); toast('標籤已刪除');
+}
+
+// Override addDragToRoom to handle label position saving too
+const _origSaveCustomPos = saveCustomPos;
+// Extended drag: labels save to state.labels instead of customPositions
+function addDragToRoom(btn, roomIdOrKey, fl, anchor) {
+  btn.classList.add('drag-enabled');
+  btn.style.cursor = 'grab';
+
+  btn.addEventListener('mousedown', startDrag, { capture: true });
+
+  function startDrag(e) {
+    if (e.button !== 0) return;
+    // Don't interfere with resize/rotate handles
+    const t = e.target;
+    if (t.classList.contains('resize-handle') ||
+        t.classList.contains('room-resize-handle') ||
+        t.classList.contains('room-rotate-handle')) return;
+    e.preventDefault(); e.stopPropagation();
+    const aRect = anchor.getBoundingClientRect();
+    activeDrag = {
+      btn, roomIdOrKey, fl,
+      startX: e.clientX, startY: e.clientY,
+      startLeft: parseFloat(btn.style.left),
+      startTop:  parseFloat(btn.style.top),
+      cW: aRect.width, cH: aRect.height,
+    };
+    btn.style.cursor = 'grabbing';
+    btn.style.zIndex = '200';
+    btn.style.opacity = '0.82';
+    btn.style.transition = 'none';
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup',   onDragEnd);
+  }
+
+  function onDragMove(e) {
+    if (!activeDrag || activeDrag.btn !== btn) return;
+    const dx = e.clientX - activeDrag.startX;
+    const dy = e.clientY - activeDrag.startY;
+    btn.style.left = Math.max(0,Math.min(92, activeDrag.startLeft+(dx/activeDrag.cW*100))) + '%';
+    btn.style.top  = Math.max(0,Math.min(92, activeDrag.startTop +(dy/activeDrag.cH*100))) + '%';
+  }
+
+  function onDragEnd() {
+    if (!activeDrag || activeDrag.btn !== btn) return;
+    const newX = parseFloat(btn.style.left);
+    const newY = parseFloat(btn.style.top);
+    const key  = activeDrag.roomIdOrKey;
+
+    // Is it a label?
+    if (key.startsWith('lbl:')) {
+      const [,labelFl,idStr] = key.split(':');
+      const lblId = parseInt(idStr);
+      const lbl = (state.labels?.[labelFl]||[]).find(l=>l.id===lblId);
+      if (lbl) { lbl.x = newX; lbl.y = newY; }
+    } else {
+      // It's a room
+      saveCustomPos(key, fl, newX, newY);
+    }
+    saveState();
+    btn.style.cursor = 'grab';
+    btn.style.zIndex = '';
+    btn.style.opacity = '1';
+    btn.style.transition = '';
+    activeDrag = null;
+    toast(`位置已儲存 (${newX.toFixed(1)}%, ${newY.toFixed(1)}%)`);
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup',   onDragEnd);
+  }
+}
+
+// ─── Inline room number editing ────────────────────
+function makeRoomNumEditable(numEl, roomId, fl) {
+  numEl.title = '雙擊編輯房號';
+  numEl.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    const input = document.createElement('input');
+    input.className = 'room-num-input';
+    input.value = roomId;
+    input.maxLength = 10;
+    numEl.replaceWith(input);
+    input.select();
+
+    function commit() {
+      const newNum = input.value.trim();
+      if (newNum && newNum !== roomId) {
+        // Rename room key in state
+        const flData = state.floors[fl];
+        if (flData && flData.rooms[roomId]) {
+          const room = flData.rooms[roomId];
+          room.id = newNum; room.number = newNum;
+          flData.rooms[newNum] = room;
+          delete flData.rooms[roomId];
+          // Update custom positions
+          if (state.customPositions?.[fl]?.[roomId]) {
+            state.customPositions[fl][newNum] = state.customPositions[fl][roomId];
+            delete state.customPositions[fl][roomId];
+          }
+          // Update FLOOR_ROOMS (runtime)
+          if (FLOOR_ROOMS[fl]?.[roomId]) {
+            FLOOR_ROOMS[fl][newNum] = FLOOR_ROOMS[fl][roomId];
+            delete FLOOR_ROOMS[fl][roomId];
+          }
+          // Update persons
+          state.persons.forEach(p => { if(p.assignedRoom===roomId&&p.assignedFloor===fl) p.assignedRoom=newNum; });
+          // Update schedules
+          state.schedules.forEach(s => { if(s.roomId===roomId&&s.floor===fl) s.roomId=newNum; });
+          saveState();
+          if (selectedRoom === roomId) selectedRoom = newNum;
+          renderAll();
+          toast(`房號已更改：${roomId} → ${newNum}`);
+          return;
+        }
+      }
+      // No change or invalid: just rebuild
+      buildMap();
+    }
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { input.value = roomId; input.blur(); }
+    });
+  });
+}
+
+// ─── Floor Map ────────────────────────────────────
+function buildMap() {
+  const container = document.getElementById('floor-plan-container');
+  container.innerHTML = '';
+  container.style.transform = `scale(${mapZoom})`;
+  container.style.transformOrigin = 'top left';
+
+  const fl = currentFloor;
+  const imgSrc = imgCache[fl] || (fl.toLowerCase().replace(' ','') + '.jpg');
+
+  // Create image element (fallback to SVG if not found)
+  const img = document.createElement('img');
+  img.className = 'floor-plan-img';
+  img.alt = fl + ' 平面圖';
+  img.draggable = false;
+  img.id = 'floor-img';
+  img.onerror = () => buildFallbackSVG(container, fl);
+  img.onload = () => { positionRooms(container, fl); };
+  img.src = imgSrc;
+  container.appendChild(img);
+
+  // No-img hint (shown until image loads or if fails)
+  const hint = document.createElement('div');
+  hint.className = 'img-upload-hint';
+  hint.id = 'img-hint';
+  hint.innerHTML = `<div class="icon">🗺️</div><p>${fl} 底圖未載入<br><label style="color:#3182ce;cursor:pointer">點此上傳底圖<input type="file" accept="image/*" style="display:none" onchange="handleImgUpload(event)"></label><br><small>或將 ${fl.toLowerCase()}.png 放至同一目錄</small></p>`;
+  container.appendChild(hint);
+}
+
+function positionRooms(container, fl) {
+  const hint = document.getElementById('img-hint');
+  if(hint) hint.remove();
+  const img = document.getElementById('floor-img');
+  if(!img) return;
+  img.style.display = 'block';
+  _placeRoomBtns(container, container, fl);
+}
+
+function _placeRoomBtns(container, anchor, fl) {
+  // Render special area labels first (below rooms)
+  renderLabels(anchor, fl);
+
+  const rpos = FLOOR_ROOMS[fl] || {};
+  const rooms = state.floors[fl]?.rooms || {};
+  Object.entries(rpos).forEach(([roomId]) => {
+    const pos  = getRoomPos(roomId, fl);
+    if(!pos) return;
+    const room = rooms[roomId]; if(!room) return;
+    const status = getRoomStatus(room);
+    const occ = room.beds.filter(b=>b!==null).length;
+    const key = `${fl}:${roomId}`;
+
+    const btn = document.createElement('div');
+    btn.className = `room-btn ${status}`;
+    if(getRoomGenderStatus(room) === 'female') btn.classList.add('female');
+    if(selectedRoom === roomId) btn.classList.add('selected');
+    btn.dataset.roomId = roomId;
+    btn.style.left   = pos.x + '%';
+    btn.style.top    = pos.y + '%';
+    btn.style.width  = pos.w + '%';
+    btn.style.height = pos.h + '%';
+
+    const dots = room.beds.map(pid =>
+      `<div class="bed-dot" style="background:${pid!==null?avColor(pid):'#cbd5e0'}"></div>`
+    ).join('');
+
+    // Room number span (editable on dblclick)
+    const numSpan = document.createElement('div');
+    numSpan.className = 'room-btn-num';
+    numSpan.textContent = room.number;
+
+    btn.appendChild(numSpan);
+    btn.insertAdjacentHTML('beforeend',
+      `<div class="room-btn-occ">${occ}/${room.beds.length}</div><div class="room-btn-dots">${dots}</div>`);
+
+    // Enable inline editing of room number
+    makeRoomNumEditable(numSpan, roomId, fl);
+
+    // Right-click → context menu
+    btn.addEventListener('contextmenu', e => showRoomCtxMenu(e, roomId, fl));
+    // Left-click → select (unless dragging or editing)
+    btn.addEventListener('click', e => { if(!activeDrag && e.target === btn) selectRoom(roomId); });
+    // Person drop target
+    btn.addEventListener('dragover', e=>{e.preventDefault();if(!draggableRooms.has(key))btn.classList.add('drag-over');});
+    btn.addEventListener('dragleave', ()=>btn.classList.remove('drag-over'));
+    btn.addEventListener('drop', e=>{
+      e.preventDefault(); btn.classList.remove('drag-over');
+      if(dragPersonId!==null && !draggableRooms.has(key)) assignPersonToRoom(dragPersonId,roomId);
+    });
+
+    // Apply stored rotation
+    if (pos.r) { btn.style.transform = `rotate(${pos.r}deg)`; btn.style.transformOrigin = 'center center'; }
+
+    if(draggableRooms.has(key)) {
+      addDragToRoom(btn, roomId, fl, anchor);
+      addResizeHandleToRoom(btn, roomId, fl, anchor);
+      addRotateHandleToRoom(btn, roomId, fl);
+    }
+
+    container.appendChild(btn);
+  });
+}
+
+function buildFallbackSVG(container, fl) {
+  const hint = document.getElementById('img-hint');
+  if(hint) hint.remove();
+
+  // Aspect ratio: original floor plan is roughly 4:3.5 wide:tall
+  // We use a placeholder div with padding-bottom trick to give the container height
+  const spacer = document.createElement('div');
+  spacer.style.cssText = 'width:100%;padding-bottom:88%;background:#f1f5f9;border-radius:6px;position:relative;overflow:hidden';
+  container.insertBefore(spacer, container.firstChild);
+
+  // Build SVG overlay within spacer
+  const svgNS='http://www.w3.org/2000/svg';
+  const svgEl=document.createElementNS(svgNS,'svg');
+  svgEl.setAttribute('viewBox','0 0 100 100');
+  svgEl.style.cssText='position:absolute;inset:0;width:100%;height:100%';
+
+  // Building outline (approximating the diagonal + bottom wing shape)
+  const shapes = [
+    // Left diagonal wing
+    'M 2,54 L 2,78 L 14,78 L 24,56 L 24,2 L 16,2 Z',
+    // Main center block
+    'M 24,2 L 50,2 L 50,78 L 24,78 Z',
+    // Right block
+    'M 50,8 L 95,8 L 95,78 L 50,78 Z',
+    // Bottom wing
+    'M 24,78 L 95,78 L 95,98 L 24,98 Z',
+  ];
+  shapes.forEach(d=>{
+    const p=document.createElementNS(svgNS,'path');
+    p.setAttribute('d',d);p.setAttribute('fill','#f8fafc');
+    p.setAttribute('stroke','#94a3b8');p.setAttribute('stroke-width','0.4');
+    svgEl.appendChild(p);
+  });
+
+  // Corridor lines
+  [[0,2],[8,2],[16,2],[24,2],[32,2],[40,2],[48,2],[56,2],[64,2],[72,2],[80,2],[88,2]].forEach(([x,w])=>{});
+  // Horizontal corridor
+  const hc=document.createElementNS(svgNS,'line');
+  hc.setAttribute('x1','24');hc.setAttribute('y1','78');hc.setAttribute('x2','95');hc.setAttribute('y2','78');
+  hc.setAttribute('stroke','#cbd5e0');hc.setAttribute('stroke-width','0.5');
+  svgEl.appendChild(hc);
+
+  // Floor label
+  const flLbl=document.createElementNS(svgNS,'text');
+  flLbl.setAttribute('x','2');flLbl.setAttribute('y','99');
+  flLbl.setAttribute('font-size','3');flLbl.setAttribute('fill','#94a3b8');
+  flLbl.setAttribute('font-family','Microsoft JhengHei,sans-serif');
+  flLbl.textContent=fl+' 示意圖（請上傳底圖）';
+  svgEl.appendChild(flLbl);
+
+  // Special area fills
+  [{x:26,y:2,w:9,h:8,label:'倉庫',c:'#e9d8fd'},
+   {x:36,y:2,w:9,h:8,label:'洗衣間',c:'#bee3f8'},
+   {x:64,y:8,w:11,h:9,label:'洗衣間',c:'#bee3f8'},
+   {x:77,y:8,w:15,h:9,label:'租賃物財產區',c:'#fefcbf'},
+   {x:26,y:62,w:9,h:7,label:'倉庫',c:'#e9d8fd'},
+  ].forEach(a=>{
+    const r=document.createElementNS(svgNS,'rect');
+    r.setAttribute('x',a.x);r.setAttribute('y',a.y);r.setAttribute('width',a.w);r.setAttribute('height',a.h);
+    r.setAttribute('fill',a.c);r.setAttribute('stroke','#a0aec0');r.setAttribute('stroke-width','0.3');r.setAttribute('rx','0.5');
+    svgEl.appendChild(r);
+    const t=document.createElementNS(svgNS,'text');
+    t.setAttribute('x',a.x+a.w/2);t.setAttribute('y',a.y+a.h/2);
+    t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','central');
+    t.setAttribute('font-size','2');t.setAttribute('fill','#4a5568');
+    t.setAttribute('font-family','Microsoft JhengHei,sans-serif');
+    t.textContent=a.label;svgEl.appendChild(t);
+  });
+
+  spacer.appendChild(svgEl);
+
+  // Position rooms after layout — use requestAnimationFrame to wait for dimensions
+  requestAnimationFrame(() => positionRoomsOnSpacer(container, spacer, fl));
+}
+
+function positionRoomsOnSpacer(container, spacer, fl) {
+  _placeRoomBtns(spacer, spacer, fl);
+}
+
+// ─── Zoom ──────────────────────────────────────────
+function zoomMap(d) {
+  mapZoom = Math.max(0.4, Math.min(3, mapZoom+d));
+  document.getElementById('zoom-label').textContent=Math.round(mapZoom*100)+'%';
+  document.getElementById('floor-plan-container').style.transform=`scale(${mapZoom})`;
+  document.getElementById('floor-plan-container').style.transformOrigin='top left';
+}
+function resetZoom(){ mapZoom=1; zoomMap(0); }
+
+// ─── Image upload ──────────────────────────────────
+function handleImgUpload(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    imgCache[currentFloor] = ev.target.result;
+    localStorage.setItem(FLOOR_IMG_KEY[currentFloor], ev.target.result);
+    buildMap(); toast(`${currentFloor} 底圖已更新`);
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Room Detail ──────────────────────────────────
+function selectRoom(roomId) {
+  selectedRoom = roomId;
+  document.getElementById('panel-title').textContent = `${currentFloor} 房間 ${roomId}`;
+  document.getElementById('btn-edit-room').style.display = 'inline-block';
+  // Highlight on map
+  document.querySelectorAll('.room-btn').forEach(b => b.classList.toggle('selected', b.dataset.roomId===roomId));
+  renderRoomDetail(roomId);
+}
+
+function renderRoomDetail(roomId) {
+  const room = state.floors[currentFloor]?.rooms[roomId]; if(!room) return;
+  const occ = room.beds.filter(b=>b!==null).length;
+  const s = getRoomStatus(room);
+  const isFemale = getRoomGenderStatus(room) === 'female';
+  const sText = {empty:'空房',partial:'部分入住',full:'客滿'}[s];
+  const sCol  = isFemale
+    ? {empty:'#f9a8d4',partial:'#f472b6',full:'#db2777'}[s]
+    : {empty:'#9ae6b4',partial:'#fbd38d',full:'#feb2b2'}[s];
+  const headerBg = isFemale ? 'linear-gradient(135deg,#9d174d,#db2777)' : 'linear-gradient(135deg,#2b6cb0,#3182ce)';
+  const scheds = state.schedules.filter(x=>x.roomId===roomId&&x.floor===currentFloor);
+
+  document.getElementById('room-detail-body').innerHTML=`
+    <div class="room-detail-header" style="background:${headerBg}">
+      <h2>${isFemale?'🌸':'🏠'} ${currentFloor} · ${roomId}</h2>
+      <div class="sub">${room.type} · ${room.beds.length} 床位</div>
+      <div class="sub">狀態：<span style="color:${sCol};font-weight:700">${sText}</span>（${occ}/${room.beds.length}）</div>
+      ${room.note?`<div class="sub">備註：${room.note}</div>`:''}
+    </div>
+    <div class="section-title" style="margin-top:0">床位配置</div>
+    <div class="drag-hint">從左側人員清單拖曳至床位</div>
+    <div class="bed-grid">
+      ${room.beds.map((pid,i)=>{
+        const p=pid!==null?state.persons.find(x=>x.id===pid):null;
+        return`<div class="bed-slot ${p?'occupied':''}"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="onBedDrop(event,'${roomId}',${i})">
+          ${p?`<button class="bed-remove" onclick="unassignBed('${roomId}',${i})">✕</button>
+            <div style="width:26px;height:26px;border-radius:50%;background:${avColor(p.id)};color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">${avLetter(p.name)}</div>
+            <div class="bed-name">${p.name}${p.gender==='F'?' ♀':''}</div>
+            <div class="bed-dept">${p.dept||''}</div>
+            ${p.classPeriod?`<div style="font-size:8px;color:#3182ce;margin-top:1px">${p.classPeriod}</div>`:''}`
+          :`<div style="font-size:18px">🛏️</div><div style="font-size:10px;color:#a0aec0">床位 ${i+1}</div>`}
+        </div>`;
+      }).join('')}
+    </div>
+    ${scheds.length?`<div class="section-title">住宿排程</div>
+      ${scheds.map(s=>{const p=state.persons.find(x=>x.id===s.personId);return`
+        <div class="sched-row"><div class="sched-dot" style="background:${avColor(s.personId||0)}"></div>
+        <div style="flex:1"><div>${p?p.name:'?'}·床${(s.bedIdx||0)+1}</div><div style="color:#a0aec0;font-size:10px">${s.checkIn}~${s.checkOut}</div></div>
+        <button class="btn btn-danger btn-sm" onclick="removeSchedule(${s.id})">✕</button></div>`;
+      }).join('')}`:''}
+    <div style="margin-top:12px;display:flex;gap:6px">
+      <button class="btn btn-primary btn-sm" onclick="openModal('addSchedule')" style="flex:1">📅 排定入住</button>
+      <button class="btn btn-warning btn-sm" onclick="openModal('editRoom')" style="flex:1">✏️ 編輯</button>
+    </div>`;
+}
+
+function unassignBed(roomId, bedIdx) {
+  const room=state.floors[currentFloor]?.rooms[roomId];if(!room)return;
+  const pid=room.beds[bedIdx];
+  if(pid!==null){
+    const p=state.persons.find(x=>x.id===pid);
+    if(p){p.assignedRoom=null;p.assignedBed=null;p.assignedFloor=null;}
+    state.schedules=state.schedules.filter(s=>!(s.roomId===roomId&&s.floor===currentFloor&&s.bedIdx===bedIdx&&s.personId===pid));
+  }
+  room.beds[bedIdx]=null;saveState();renderAll();renderRoomDetail(roomId);
+}
+
+// ─── Drag & Drop ──────────────────────────────────
+function onPersonDragStart(e, id) {
+  dragPersonId=id; e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+function onPersonDragEnd(e) {
+  dragPersonId=null; e.target.classList.remove('dragging');
+}
+function onBedDrop(e, roomId, bedIdx) {
+  e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+  if(dragPersonId===null)return;
+  const room=state.floors[currentFloor]?.rooms[roomId];if(!room)return;
+  if(room.beds[bedIdx]!==null){toast('此床位已有人','err');return;}
+  assignPersonToBed(dragPersonId, roomId, bedIdx);
+}
+function assignPersonToRoom(pid, roomId) {
+  const room=state.floors[currentFloor]?.rooms[roomId];if(!room)return;
+  const fi=room.beds.findIndex(b=>b===null);
+  if(fi===-1){toast(`房間 ${roomId} 已客滿`,'err');return;}
+  assignPersonToBed(pid, roomId, fi);
+}
+function assignPersonToBed(pid, roomId, bedIdx) {
+  const room=state.floors[currentFloor]?.rooms[roomId];
+  const p=state.persons.find(x=>x.id===pid);if(!p)return;
+  if(p.assignedRoom){
+    const of=state.floors[p.assignedFloor];
+    if(of){const or=of.rooms[p.assignedRoom];if(or)or.beds[p.assignedBed]=null;}
+  }
+  room.beds[bedIdx]=pid;p.assignedRoom=roomId;p.assignedBed=bedIdx;p.assignedFloor=currentFloor;
+  const today=new Date().toISOString().slice(0,10);
+  const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10);
+  state.schedules.push({id:Date.now(),personId:pid,floor:currentFloor,roomId,checkIn:today,checkOut:tomorrow,bedIdx,note:'拖曳分配'});
+  saveState();renderAll();if(selectedRoom===roomId)renderRoomDetail(roomId);
+  toast(`${p.name} → ${currentFloor} 房間${roomId} 床位${bedIdx+1}`);
+}
+
+// ─── Export ───────────────────────────────────────
+function exportData() {
+  const rows=[['樓層','房號','房型','床位','人員','性別','受訓班期','部門','職稱','入住日','退房日','備註']];
+  ['5F','6F'].forEach(fl=>{
+    Object.values(state.floors[fl].rooms).forEach(room=>{
+      room.beds.forEach((pid,i)=>{
+        const p=pid!==null?state.persons.find(x=>x.id===pid):null;
+        const s=state.schedules.filter(x=>x.floor===fl&&x.roomId===room.id&&x.bedIdx===i).slice(-1)[0];
+        rows.push([fl,room.number,room.type,i+1,
+          p?p.name:'', p?(p.gender==='F'?'女':'男'):'', p?p.classPeriod||'':'',
+          p?p.dept||'':'', p?p.title||'':'',
+          s?s.checkIn:'', s?s.checkOut:'', s?s.note||'':'']);
+      });
+    });
+  });
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`住宿配置_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast('已匯出 5F+6F CSV');
+}
+
+// ─── Render All ───────────────────────────────────
+function renderAll() {
+  renderStats();renderPersonList();renderRoomList();renderScheduleSidebar();buildMap();
+}
+
+// ─── Init ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadState(); loadImgCache(); autoCacheFloorImgs();
+  renderAll();
+  document.querySelectorAll('.modal-overlay').forEach(el=>{
+    el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');});
+  });
+  // Handle window resize
+  window.addEventListener('resize', ()=>{ if(selectedRoom) renderRoomDetail(selectedRoom); });
+});
+</script>
+</body>
+</html>
