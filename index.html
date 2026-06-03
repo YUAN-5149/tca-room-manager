@@ -366,7 +366,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <button class="btn btn-light" onclick="openModal('addPerson')">＋ 新增人員</button>
     <button class="btn btn-light" onclick="openModal('addSchedule')">📅 排定住宿</button>
     <button class="btn btn-light" onclick="exportData()">📥 匯出</button>
-    <button class="btn btn-success" id="btn-publish" onclick="publishLayout()" title="將目前所有房間/標籤位置發佈到雲端，所有裝置即時同步">☁️ 發佈佈局</button>
+    <button class="btn btn-success" id="btn-publish" onclick="publishLayout()" title="將目前完整資料（人員/房間/排程/位置）發佈到雲端，所有裝置即時同步">☁️ 發佈同步</button>
   </div>
 </div>
 
@@ -1912,7 +1912,7 @@ function closeMobilePanels() {
 let _lastPublishTs = 0;          // 避免自己發佈的回音造成跳動
 let _layoutCloudReady = false;   // Firebase 是否就緒
 
-// 發佈：把目前所有房間/標籤座標寫入雲端，所有裝置即時同步
+// 發佈：把完整系統資料（人員/房間/排程/座標/標籤）寫入雲端，所有裝置即時同步
 async function publishLayout() {
   if (!_layoutCloudReady || !window.fbPublishLayout) {
     toast('雲端連線尚未就緒，請稍候再試…', 'err');
@@ -1923,28 +1923,40 @@ async function publishLayout() {
   _lastPublishTs = ts;
   try {
     if (btn) { btn.disabled = true; btn.textContent = '☁️ 發佈中…'; }
-    await window.fbPublishLayout({
+    // JSON round-trip 移除 undefined（Firestore 不接受），保留 null
+    const payload = JSON.parse(JSON.stringify({
+      persons:         state.persons || [],
+      schedules:       state.schedules || [],
+      floors:          state.floors || {},
       customPositions: state.customPositions || { '5F':{}, '6F':{} },
-      labels: state.labels || { '5F':[], '6F':[] },
-      updatedAt: ts
-    });
-    toast('✅ 佈局已發佈，所有裝置即時同步');
+      labels:          state.labels || { '5F':[], '6F':[] },
+      nextPersonId:    state.nextPersonId || 1,
+      nextLabelId:     state.nextLabelId || 10,
+    }));
+    payload.updatedAt = ts;
+    await window.fbPublishLayout(payload);
+    toast('✅ 已發佈，全裝置即時同步（人員/房間/排程/位置）');
   } catch (e) {
     toast('發佈失敗：' + (e.message || e), 'err');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '☁️ 發佈佈局'; }
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ 發佈同步'; }
   }
 }
 
-// 套用雲端佈局（由 Firebase 即時監聽呼叫）
+// 套用雲端完整資料（由 Firebase 即時監聽呼叫）→ 統計/人員/房間/排程/地圖全部即時更新
 function applyRemoteLayout(data) {
   if (!data) return;
   if (data.updatedAt && data.updatedAt === _lastPublishTs) return; // 略過自己的回音
+  if (data.persons)         state.persons = data.persons;
+  if (data.schedules)       state.schedules = data.schedules;
+  if (data.floors)          state.floors = data.floors;
   if (data.customPositions) state.customPositions = data.customPositions;
-  if (data.labels) state.labels = data.labels;
+  if (data.labels)          state.labels = data.labels;
+  if (data.nextPersonId)    state.nextPersonId = data.nextPersonId;
+  if (data.nextLabelId)     state.nextLabelId = data.nextLabelId;
   saveState();
-  buildMap();
-  if (selectedRoom) renderRoomDetail(selectedRoom);
+  renderAll();   // 重繪統計 + 人員 + 房間 + 排程 + 地圖
+  if (selectedRoom && state.floors[currentFloor]?.rooms[selectedRoom]) renderRoomDetail(selectedRoom);
 }
 window.applyRemoteLayout = applyRemoteLayout;
 window.onLayoutCloudReady = () => { _layoutCloudReady = true; };
