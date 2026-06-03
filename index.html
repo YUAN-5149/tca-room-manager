@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -285,6 +285,66 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   display:none;align-items:center;gap:10px;
 }
 #edit-mode-bar.show{display:flex}
+
+/* ════════════ RWD 響應式設計 ════════════ */
+.mobile-toggle{display:none}
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050}
+.mobile-overlay.show{display:block}
+
+/* 平板 (≤1024px)：縮窄側欄 */
+@media (max-width:1024px){
+  .sidebar{width:210px}
+  .right-panel{width:235px}
+  .header h1{font-size:15px}
+}
+
+/* 手機 / 直立平板 (≤768px)：側欄改為滑出抽屜 */
+@media (max-width:768px){
+  .header{padding:8px 12px;flex-wrap:wrap;gap:6px}
+  .header h1{font-size:14px}
+  .header .btn{padding:5px 9px;font-size:11px}
+  .mobile-toggle{display:flex;gap:6px}
+
+  .main{position:relative}
+
+  /* 左側欄 → 左側抽屜 */
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:1100;
+    width:82vw;max-width:300px;
+    transform:translateX(-100%);
+    transition:transform .28s ease;
+    box-shadow:2px 0 18px rgba(0,0,0,.3);
+  }
+  .sidebar.open{transform:translateX(0)}
+
+  /* 右側欄 → 右側抽屜 */
+  .right-panel{
+    position:fixed;top:0;right:0;bottom:0;z-index:1100;
+    width:86vw;max-width:330px;
+    transform:translateX(100%);
+    transition:transform .28s ease;
+    box-shadow:-2px 0 18px rgba(0,0,0,.3);
+  }
+  .right-panel.open{transform:translateX(0)}
+
+  /* 地圖區佔滿 */
+  .map-area{padding:6px}
+  .map-toolbar{flex-wrap:wrap;gap:6px}
+  .floor-tabs{flex-wrap:wrap}
+  .legend{display:none}
+  .zoom-ctrl button{padding:4px 12px}
+}
+
+/* 小手機 (≤480px) */
+@media (max-width:480px){
+  .header h1{font-size:13px}
+  .header .btn{padding:4px 7px;font-size:10px}
+  .floor-tab{padding:5px 14px;font-size:12px}
+  .modal{padding:16px;width:94vw}
+  .form-row{grid-template-columns:1fr}
+  .bed-grid{grid-template-columns:1fr 1fr}
+  .map-area{padding:4px}
+}
 </style>
 </head>
 <body>
@@ -298,12 +358,19 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       <div style="font-size:10px;opacity:.8" id="header-floor-label">5F 平面配置管理</div>
     </div>
   </div>
-  <div style="display:flex;gap:7px">
+  <div style="display:flex;gap:7px;align-items:center">
+    <div class="mobile-toggle">
+      <button class="btn btn-light" onclick="toggleSidebar()" title="選單">☰</button>
+      <button class="btn btn-light" onclick="toggleRightPanel()" title="房間詳情">ℹ️</button>
+    </div>
     <button class="btn btn-light" onclick="openModal('addPerson')">＋ 新增人員</button>
     <button class="btn btn-light" onclick="openModal('addSchedule')">📅 排定住宿</button>
     <button class="btn btn-light" onclick="exportData()">📥 匯出</button>
   </div>
 </div>
+
+<!-- Mobile drawer overlay -->
+<div class="mobile-overlay" id="mobile-overlay" onclick="closeMobilePanels()"></div>
 
 <div class="main">
   <!-- ── Left Sidebar ── -->
@@ -1639,7 +1706,7 @@ function buildMap() {
   const hint = document.createElement('div');
   hint.className = 'img-upload-hint';
   hint.id = 'img-hint';
-  hint.innerHTML = `<div class="icon">🗺️</div><p>${fl} 底圖未載入<br><label style="color:#3182ce;cursor:pointer">點此上傳底圖<input type="file" accept="image/*" style="display:none" onchange="handleImgUpload(event)"></label><br><small>或將 ${fl.toLowerCase()}.png 放至同一目錄</small></p>`;
+  hint.innerHTML = `<div class="icon">🗺️</div><p>${fl} 底圖未載入<br><label style="color:#3182ce;cursor:pointer">點此上傳底圖<input type="file" accept="image/*" style="display:none" onchange="handleImgUpload(event)"></label><br><small>或將 ${fl.toLowerCase()}.jpg 放至同一目錄</small></p>`;
   container.appendChild(hint);
 }
 
@@ -1825,6 +1892,32 @@ function selectRoom(roomId) {
   // Highlight on map
   document.querySelectorAll('.room-btn').forEach(b => b.classList.toggle('selected', b.dataset.roomId===roomId));
   renderRoomDetail(roomId);
+  // 手機：點選房間自動滑出右側詳情面板
+  if (window.innerWidth <= 768) openRightPanel();
+}
+
+// ─── RWD 抽屜切換 ──────────────────────────────────
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  document.querySelector('.right-panel').classList.remove('open');
+  sb.classList.toggle('open');
+  document.getElementById('mobile-overlay').classList.toggle('show', sb.classList.contains('open'));
+}
+function toggleRightPanel() {
+  const rp = document.querySelector('.right-panel');
+  document.querySelector('.sidebar').classList.remove('open');
+  rp.classList.toggle('open');
+  document.getElementById('mobile-overlay').classList.toggle('show', rp.classList.contains('open'));
+}
+function openRightPanel() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.querySelector('.right-panel').classList.add('open');
+  document.getElementById('mobile-overlay').classList.add('show');
+}
+function closeMobilePanels() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.querySelector('.right-panel').classList.remove('open');
+  document.getElementById('mobile-overlay').classList.remove('show');
 }
 
 function renderRoomDetail(roomId) {
