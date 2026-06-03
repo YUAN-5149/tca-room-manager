@@ -610,72 +610,41 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 // ── Room positions calibrated to actual floor plan image ──
 // Coordinates as % of image container (left, top, width, height)
 // Derived from clean floor plan provided by user
-const FLOOR_ROOMS = {
-  '5F': {
-    // ── Left diagonal wing - OUTER wall (從上到下：518→502) ──
-    '518':{x:13,  y:4,   w:7.5,h:7},
-    '516':{x:10,  y:13,  w:7.5,h:7},
-    '514':{x:8,   y:22,  w:7.5,h:7},
-    '512':{x:5.5, y:31,  w:7.5,h:7},
-    '510':{x:4,   y:40,  w:7.5,h:7},
-    '508':{x:2.5, y:49,  w:7.5,h:7},
-    '506':{x:2,   y:57.5,w:7.5,h:7},
-    '504':{x:4.5, y:65,  w:7.5,h:7},
-    '502':{x:5,   y:72,  w:7.5,h:7},
-    // ── Left diagonal wing - INNER wall (從上到下：528→522) ──
-    '528':{x:40,  y:16,  w:7.5,h:7},
-    '526':{x:36,  y:27,  w:7.5,h:7},
-    '524':{x:33,  y:37,  w:7.5,h:7},
-    '522':{x:34,  y:46,  w:7.5,h:7},
-    // ── Junction & right section ──
-    '521':{x:43,  y:57,  w:7.5,h:7},
-    '523':{x:48,  y:66,  w:7.5,h:7},
-    '525':{x:56,  y:66,  w:7.5,h:7},
-    '527':{x:67,  y:66,  w:9,  h:7},
-    // ── Lower-center (501/503) ──
-    '501':{x:21,  y:67,  w:7.5,h:7},
-    '503':{x:24,  y:76,  w:7.5,h:7},
-    // ── Bottom wing (505→519) ──
-    '505':{x:30,  y:89,  w:7,  h:7},
-    '507':{x:38,  y:89,  w:7,  h:7},
-    '509':{x:46,  y:89,  w:7,  h:7},
-    '511':{x:54,  y:89,  w:7,  h:7},
-    '513':{x:62,  y:89,  w:7,  h:7},
-    '515':{x:70,  y:89,  w:7,  h:7},
-    '517':{x:78,  y:89,  w:7,  h:7},
-    '519':{x:86,  y:89,  w:7,  h:7},
-  },
-  '6F': {
-    // 6F 與 5F 相同格局，房號前綴改為 6
-    '618':{x:13,  y:4,   w:7.5,h:7},
-    '616':{x:10,  y:13,  w:7.5,h:7},
-    '614':{x:8,   y:22,  w:7.5,h:7},
-    '612':{x:5.5, y:31,  w:7.5,h:7},
-    '610':{x:4,   y:40,  w:7.5,h:7},
-    '608':{x:2.5, y:49,  w:7.5,h:7},
-    '606':{x:2,   y:57.5,w:7.5,h:7},
-    '604':{x:4.5, y:65,  w:7.5,h:7},
-    '602':{x:5,   y:72,  w:7.5,h:7},
-    '628':{x:40,  y:16,  w:7.5,h:7},
-    '626':{x:36,  y:27,  w:7.5,h:7},
-    '624':{x:33,  y:37,  w:7.5,h:7},
-    '622':{x:34,  y:46,  w:7.5,h:7},
-    '621':{x:43,  y:57,  w:7.5,h:7},
-    '623':{x:48,  y:66,  w:7.5,h:7},
-    '625':{x:56,  y:66,  w:7.5,h:7},
-    '627':{x:67,  y:66,  w:9,  h:7},
-    '601':{x:21,  y:67,  w:7.5,h:7},
-    '603':{x:24,  y:76,  w:7.5,h:7},
-    '605':{x:30,  y:89,  w:7,  h:7},
-    '607':{x:38,  y:89,  w:7,  h:7},
-    '609':{x:46,  y:89,  w:7,  h:7},
-    '611':{x:54,  y:89,  w:7,  h:7},
-    '613':{x:62,  y:89,  w:7,  h:7},
-    '615':{x:70,  y:89,  w:7,  h:7},
-    '617':{x:78,  y:89,  w:7,  h:7},
-    '619':{x:86,  y:89,  w:7,  h:7},
-  }
-};
+// ── Shared layout (5F = 6F, prefix 5/6). Calibrated to floor-plan image ──
+// 618/619/624/623/605 are now 倉庫 labels (see defaultLabels), not rooms.
+function buildFloorRooms(p) {  // p = '5' or '6'
+  return {
+    // ── Left diagonal wing - OUTER wall (上→下: x16→x06) ──
+    [p+'16']:{x:15.5,y:10.5,w:10.5,h:5.2},
+    [p+'14']:{x:14.2,y:15.8,w:10.5,h:5.2},
+    [p+'12']:{x:12.8,y:21.0,w:10.5,h:5.2},
+    [p+'10']:{x:11.6,y:26.5,w:10.5,h:5.0},
+    [p+'08']:{x:10.4,y:32.0,w:10.5,h:5.2},
+    [p+'06']:{x:8.8, y:37.5,w:11.0,h:5.4},
+    // ── Inner wing big rooms (0/8) ──
+    [p+'28']:{x:25.5,y:21.0,w:10.2,h:9.0},
+    [p+'26']:{x:24.7,y:30.8,w:10.2,h:8.5},
+    // ── Left-lower ──
+    [p+'04']:{x:11.0,y:49.0,w:8.5, h:7.3},
+    [p+'22']:{x:23.2,y:47.8,w:9.6, h:10.0},
+    [p+'02']:{x:14.3,y:56.8,w:11.3,h:10.0},
+    // ── Center ──
+    [p+'21']:{x:39.4,y:70.2,w:9.5, h:9.0},
+    [p+'01']:{x:29.8,y:77.8,w:8.5, h:7.6},
+    [p+'03']:{x:36.9,y:85.0,w:7.8, h:6.6},
+    // ── Right-middle ──
+    [p+'25']:{x:53.2,y:74.6,w:9.2, h:8.9},
+    [p+'27']:{x:63.2,y:74.6,w:9.2, h:8.9},
+    // ── Bottom wing (07→17) ──
+    [p+'07']:{x:47.8,y:88.6,w:5.5, h:8.5},
+    [p+'09']:{x:53.3,y:88.6,w:5.5, h:8.5},
+    [p+'11']:{x:58.8,y:88.6,w:5.5, h:8.5},
+    [p+'13']:{x:64.0,y:88.6,w:5.5, h:8.5},
+    [p+'15']:{x:69.2,y:88.6,w:5.5, h:8.5},
+    [p+'17']:{x:74.4,y:88.6,w:5.5, h:8.5},
+  };
+}
+const FLOOR_ROOMS = { '5F': buildFloorRooms('5'), '6F': buildFloorRooms('6') };
 
 const FLOOR_IMG_KEY = { '5F':'floorImg_5F', '6F':'floorImg_6F' };
 
@@ -700,21 +669,21 @@ let state = {
 };
 
 const BED_COUNTS = {
-  // 5F
-  '502':3,'504':3,'506':2,'508':2,'510':2,'512':2,'514':2,'516':2,'518':2,
+  // 5F  (502/522/526/528 are 8-bed; 518/519/524/523/505 → 倉庫 labels)
+  '502':8,'504':3,'506':2,'508':2,'510':2,'512':2,'514':2,'516':2,
   '501':3,'503':3,
-  '521':4,'522':4,'523':2,'524':4,'525':3,'526':4,'527':3,'528':2,
-  '505':2,'507':2,'509':2,'511':2,'513':2,'515':2,'517':2,'519':2,
+  '521':4,'522':8,'525':3,'526':8,'527':3,'528':8,
+  '507':2,'509':2,'511':2,'513':2,'515':2,'517':2,
   // 6F (same layout)
-  '602':3,'604':3,'606':2,'608':2,'610':2,'612':2,'614':2,'616':2,'618':2,
+  '602':8,'604':3,'606':2,'608':2,'610':2,'612':2,'614':2,'616':2,
   '601':3,'603':3,
-  '621':4,'622':4,'623':2,'624':4,'625':3,'626':4,'627':3,'628':2,
-  '605':2,'607':2,'609':2,'611':2,'613':2,'615':2,'617':2,'619':2,
+  '621':4,'622':8,'625':3,'626':8,'627':3,'628':8,
+  '607':2,'609':2,'611':2,'613':2,'615':2,'617':2,
 };
 
 function roomType(n) {
   const b = BED_COUNTS[n] || 2;
-  return b<=1?'單人房':b<=2?'雙人房':b<=3?'三人房':'四人房';
+  return b<=1?'單人房':b<=2?'雙人房':b<=3?'三人房':b<=4?'四人房':'多人房';
 }
 
 function initFloor(floorId) {
@@ -727,18 +696,23 @@ function initFloor(floorId) {
 }
 
 function defaultLabels(fl) {
-  const prefix = fl === '5F' ? '5' : '6';
+  const p = fl === '5F' ? '5' : '6';
+  const STORE = { fill:'rgba(233,216,253,.85)', border:'#805ad5', color:'#44337a' }; // 倉庫 紫
+  const WASH  = { fill:'rgba(190,227,248,.85)', border:'#3182ce', color:'#1a365d' }; // 洗衣間 藍
   return [
-    { id:1, floor:fl, text:'倉庫',        x:23, y:3,   w:9, h:6.5, fill:'rgba(233,216,253,.85)', border:'#805ad5', color:'#44337a' },
-    { id:2, floor:fl, text:'洗衣間',       x:33, y:3,   w:9, h:6.5, fill:'rgba(190,227,248,.85)', border:'#3182ce', color:'#1a365d' },
-    { id:3, floor:fl, text:'洗衣間',       x:64, y:5,   w:9, h:6.5, fill:'rgba(190,227,248,.85)', border:'#3182ce', color:'#1a365d' },
-    { id:4, floor:fl, text:'租賃物\n財產區',x:74, y:5,  w:13,h:6.5, fill:'rgba(254,252,191,.88)', border:'#d69e2e', color:'#744210' },
+    { id:1, floor:fl, text:p+'18倉庫', x:19.6,y:5.2, w:8.0,h:5.0, ...STORE },
+    { id:2, floor:fl, text:'洗衣間',    x:29.0,y:15.9,w:9.0,h:4.5, ...WASH  },
+    { id:3, floor:fl, text:p+'24倉庫', x:21.6,y:42.7,w:6.0,h:5.2, ...STORE },
+    { id:4, floor:fl, text:p+'23倉庫', x:46.4,y:79.1,w:6.5,h:5.8, ...STORE },
+    { id:5, floor:fl, text:'洗衣間',    x:73.4,y:74.6,w:5.5,h:8.9, ...WASH  },
+    { id:6, floor:fl, text:p+'05倉庫', x:41.0,y:90.2,w:6.5,h:6.0, ...STORE },
+    { id:7, floor:fl, text:p+'19倉庫', x:80.0,y:88.2,w:5.5,h:8.5, ...STORE },
   ];
 }
 
 function loadState() {
   try {
-    const s = localStorage.getItem('tca_v4');
+    const s = localStorage.getItem('tca_v5');
     if (s) {
       state = JSON.parse(s);
       if(!state.schedules) state.schedules=[];
@@ -760,7 +734,7 @@ function loadState() {
    {name:'林淑芬',dept:'行政處',title:'專員',gender:'F'}
   ].forEach(d=>{ d.id=state.nextPersonId++;d.assignedFloor=null;d.assignedRoom=null;d.assignedBed=null;d.phone='';d.note='';state.persons.push(d); });
 }
-function saveState() { localStorage.setItem('tca_v4', JSON.stringify(state)); }
+function saveState() { localStorage.setItem('tca_v5', JSON.stringify(state)); }
 
 // Stored images (base64)
 const imgCache = {};
