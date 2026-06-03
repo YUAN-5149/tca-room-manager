@@ -452,7 +452,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
         </div>
         <div class="zoom-ctrl">
           <button onclick="zoomMap(-0.1)">－</button>
-          <span id="zoom-label">100%</span>
+          <span id="zoom-label">50%</span>
           <button onclick="zoomMap(0.1)">＋</button>
           <button onclick="resetZoom()">重置</button>
         </div>
@@ -653,7 +653,7 @@ const FLOOR_IMG_KEY = { '5F':'floorImg_5F', '6F':'floorImg_6F' };
 let currentFloor = '5F';
 let selectedRoom  = null;
 let dragPersonId  = null;
-let mapZoom       = 1;
+let mapZoom       = 0.5;   // 預設縮放 50%（一眼看全圖）
 
 // Drag-to-reposition state
 const draggableRooms = new Set(); // "5F:518", "6F:602" etc.
@@ -1692,6 +1692,7 @@ function positionRooms(container, fl) {
   if(!img) return;
   img.style.display = 'block';
   _placeRoomBtns(container, container, fl);
+  applyZoomSpacing();   // 套用縮放佔位補償
 }
 
 function _placeRoomBtns(container, anchor, fl) {
@@ -1840,12 +1841,24 @@ function positionRoomsOnSpacer(container, spacer, fl) {
 
 // ─── Zoom ──────────────────────────────────────────
 function zoomMap(d) {
-  mapZoom = Math.max(0.4, Math.min(3, mapZoom+d));
+  mapZoom = Math.max(0.3, Math.min(3, Math.round((mapZoom+d)*100)/100));
   document.getElementById('zoom-label').textContent=Math.round(mapZoom*100)+'%';
-  document.getElementById('floor-plan-container').style.transform=`scale(${mapZoom})`;
-  document.getElementById('floor-plan-container').style.transformOrigin='top left';
+  const c = document.getElementById('floor-plan-container');
+  c.style.transform = `scale(${mapZoom})`;
+  c.style.transformOrigin = 'top left';
+  applyZoomSpacing();
 }
-function resetZoom(){ mapZoom=1; zoomMap(0); }
+function resetZoom(){ mapZoom=0.5; zoomMap(0); }   // 重置回預設 50%
+
+// 用負 margin 補償 transform scale 不縮小佔位的問題，消除縮放後的空白捲動區
+function applyZoomSpacing() {
+  const c = document.getElementById('floor-plan-container');
+  if (!c) return;
+  c.style.marginRight = '0'; c.style.marginBottom = '0';
+  const w = c.offsetWidth, h = c.offsetHeight;   // 佈局尺寸（不受 transform 影響）
+  c.style.marginRight  = (-w * (1 - mapZoom)) + 'px';
+  c.style.marginBottom = (-h * (1 - mapZoom)) + 'px';
+}
 
 // ─── Image upload ──────────────────────────────────
 function handleImgUpload(e) {
