@@ -509,6 +509,29 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-editPerson">
+  <div class="modal">
+    <h3>編輯人員資料</h3>
+    <input type="hidden" id="ep-id">
+    <div class="form-group"><label>姓名 *</label><input id="ep-name" placeholder="請輸入姓名"></div>
+    <div class="form-group"><label>受訓班期名稱</label><input id="ep-class" placeholder="例：114年消防人員特考第1期"></div>
+    <div class="form-row">
+      <div class="form-group"><label>部門</label><input id="ep-dept" placeholder="部門/單位"></div>
+      <div class="form-group"><label>職稱</label><input id="ep-title" placeholder="職稱"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>性別</label><select id="ep-gender"><option value="M">男</option><option value="F">女</option></select></div>
+      <div class="form-group"><label>電話</label><input id="ep-phone" placeholder="聯絡電話"></div>
+    </div>
+    <div class="form-group"><label>備註</label><input id="ep-note" placeholder="備註"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="removePersonFromEdit()">刪除人員</button>
+      <button class="btn btn-cancel" onclick="closeModal('editPerson')">取消</button>
+      <button class="btn btn-success" onclick="saveEditPerson()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-addSchedule">
   <div class="modal">
     <h3>排定住宿</h3>
@@ -868,7 +891,8 @@ function renderPersonList() {
   if(!list.length){el.innerHTML='<div class="empty-state">無人員資料</div>';return;}
   el.innerHTML=list.map(p=>{
     const assigned=p.assignedRoom?`${p.assignedFloor||''} ${p.assignedRoom}`:'未分配';
-    return`<div class="person-item" draggable="true"
+    return`<div class="person-item" draggable="true" title="點擊編輯，拖曳分配房間"
+      onclick="openEditPerson(${p.id})"
       ondragstart="onPersonDragStart(event,${p.id})" ondragend="onPersonDragEnd(event)">
       <div class="person-avatar" style="background:${avColor(p.id)}">${avLetter(p.name)}</div>
       <div class="person-info">
@@ -877,7 +901,10 @@ function renderPersonList() {
         ${p.classPeriod?`<div style="font-size:10px;color:#3182ce;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.classPeriod}</div>`:''}
         <div style="font-size:10px;color:${p.assignedRoom?'#38a169':'#a0aec0'}">${assigned}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removePerson(${p.id})">✕</button>
+      <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openEditPerson(${p.id})" title="編輯人員資料">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removePerson(${p.id})" title="刪除">✕</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -904,6 +931,47 @@ function removePerson(id) {
   state.persons=state.persons.filter(x=>x.id!==id);
   state.schedules=state.schedules.filter(x=>x.personId!==id);
   saveState();renderAll();if(selectedRoom)renderRoomDetail(selectedRoom);toast('已移除人員');
+}
+
+// ── 編輯人員 ──────────────────────────────────────
+function openEditPerson(id) {
+  const p = state.persons.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('ep-id').value     = p.id;
+  document.getElementById('ep-name').value   = p.name || '';
+  document.getElementById('ep-class').value  = p.classPeriod || '';
+  document.getElementById('ep-dept').value   = p.dept || '';
+  document.getElementById('ep-title').value  = p.title || '';
+  document.getElementById('ep-gender').value = p.gender || 'M';
+  document.getElementById('ep-phone').value  = p.phone || '';
+  document.getElementById('ep-note').value   = p.note || '';
+  document.getElementById('modal-editPerson').classList.add('show');
+}
+
+function saveEditPerson() {
+  const id = parseInt(document.getElementById('ep-id').value);
+  const p = state.persons.find(x => x.id === id);
+  if (!p) { closeModal('editPerson'); return; }
+  const name = document.getElementById('ep-name').value.trim();
+  if (!name) { toast('請輸入姓名', 'err'); return; }
+  p.name        = name;
+  p.classPeriod = document.getElementById('ep-class').value.trim();
+  p.dept        = document.getElementById('ep-dept').value.trim();
+  p.title       = document.getElementById('ep-title').value.trim();
+  p.gender      = document.getElementById('ep-gender').value;
+  p.phone       = document.getElementById('ep-phone').value.trim();
+  p.note        = document.getElementById('ep-note').value.trim();
+  saveState();
+  closeModal('editPerson');
+  renderAll();   // 人員清單 + 地圖（性別顏色）+ 統計
+  if (selectedRoom) renderRoomDetail(selectedRoom);
+  toast(`已更新：${name}`);
+}
+
+function removePersonFromEdit() {
+  const id = parseInt(document.getElementById('ep-id').value);
+  closeModal('editPerson');
+  if (!isNaN(id)) removePerson(id);
 }
 
 // ─── Rooms ────────────────────────────────────────
