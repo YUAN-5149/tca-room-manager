@@ -366,6 +366,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <button class="btn btn-light" onclick="openModal('addPerson')">＋ 新增人員</button>
     <button class="btn btn-light" onclick="openModal('addSchedule')">📅 排定住宿</button>
     <button class="btn btn-light" onclick="exportData()">📥 匯出</button>
+    <button class="btn btn-success" id="btn-publish" onclick="publishLayout()" title="將目前所有房間/標籤位置發佈到雲端，所有裝置即時同步">☁️ 發佈佈局</button>
   </div>
 </div>
 
@@ -1894,6 +1895,47 @@ function closeMobilePanels() {
   document.getElementById('mobile-overlay').classList.remove('show');
 }
 
+// ─── 雲端佈局同步 (Firebase) ───────────────────────
+let _lastPublishTs = 0;          // 避免自己發佈的回音造成跳動
+let _layoutCloudReady = false;   // Firebase 是否就緒
+
+// 發佈：把目前所有房間/標籤座標寫入雲端，所有裝置即時同步
+async function publishLayout() {
+  if (!_layoutCloudReady || !window.fbPublishLayout) {
+    toast('雲端連線尚未就緒，請稍候再試…', 'err');
+    return;
+  }
+  const btn = document.getElementById('btn-publish');
+  const ts = Date.now();
+  _lastPublishTs = ts;
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = '☁️ 發佈中…'; }
+    await window.fbPublishLayout({
+      customPositions: state.customPositions || { '5F':{}, '6F':{} },
+      labels: state.labels || { '5F':[], '6F':[] },
+      updatedAt: ts
+    });
+    toast('✅ 佈局已發佈，所有裝置即時同步');
+  } catch (e) {
+    toast('發佈失敗：' + (e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ 發佈佈局'; }
+  }
+}
+
+// 套用雲端佈局（由 Firebase 即時監聽呼叫）
+function applyRemoteLayout(data) {
+  if (!data) return;
+  if (data.updatedAt && data.updatedAt === _lastPublishTs) return; // 略過自己的回音
+  if (data.customPositions) state.customPositions = data.customPositions;
+  if (data.labels) state.labels = data.labels;
+  saveState();
+  buildMap();
+  if (selectedRoom) renderRoomDetail(selectedRoom);
+}
+window.applyRemoteLayout = applyRemoteLayout;
+window.onLayoutCloudReady = () => { _layoutCloudReady = true; };
+
 function renderRoomDetail(roomId) {
   const room = state.floors[currentFloor]?.rooms[roomId]; if(!room) return;
   const occ = room.beds.filter(b=>b!==null).length;
@@ -2027,6 +2069,44 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle window resize
   window.addEventListener('resize', ()=>{ if(selectedRoom) renderRoomDetail(selectedRoom); });
 });
+</script>
+
+<!-- ═══ Firebase 雲端佈局同步 ═══ -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBvOGLCl80jWJ7LzubbrJpVf7c9_nmNbv4",
+  authDomain: "teaching-room.firebaseapp.com",
+  projectId: "teaching-room",
+  storageBucket: "teaching-room.firebasestorage.app",
+  messagingSenderId: "372990217924",
+  appId: "1:372990217924:web:af3f730876aa5981d7c391"
+};
+
+try {
+  const app = initializeApp(firebaseConfig);
+  const fdb = getFirestore(app);
+  // 集合名以 _poll 結尾 → 符合現有 Firestore 規則允許讀寫
+  const layoutRef = doc(fdb, 'tca_layout_poll', 'shared');
+
+  // 提供發佈函式給主程式
+  window.fbPublishLayout = (data) => setDoc(layoutRef, data);
+
+  // 即時監聽：任何人發佈後，所有開啟的頁面自動套用
+  onSnapshot(layoutRef, (snap) => {
+    if (snap.exists() && typeof window.applyRemoteLayout === 'function') {
+      window.applyRemoteLayout(snap.data());
+    }
+  }, (err) => console.warn('[layout-sync] 監聽錯誤:', err));
+
+  // 通知主程式雲端已就緒
+  if (typeof window.onLayoutCloudReady === 'function') window.onLayoutCloudReady();
+  console.log('[layout-sync] Firebase 已連線');
+} catch (e) {
+  console.error('[layout-sync] Firebase 初始化失敗:', e);
+}
 </script>
 </body>
 </html>
