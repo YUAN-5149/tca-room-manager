@@ -118,7 +118,9 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 
 .bed-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
 .bed-slot{border:2px dashed #cbd5e0;border-radius:7px;padding:7px;min-height:64px;text-align:center;transition:.12s;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
-.bed-slot.occupied{border-style:solid;border-color:#68d391;background:#f0fff4}
+.bed-slot.occupied{border-style:solid;border-color:#68d391;background:#f0fff4;cursor:grab}
+.bed-slot.occupied:active{cursor:grabbing}
+.bed-slot.dragging{opacity:.4}
 .bed-slot.drag-over{border-color:#3182ce !important;background:#ebf8ff !important}
 .bed-name{font-size:10px;font-weight:600;color:#2d3748;margin-top:3px}
 .bed-dept{font-size:9px;color:#718096}
@@ -2113,10 +2115,11 @@ function renderRoomDetail(roomId) {
       ${room.beds.map((pid,i)=>{
         const p=pid!==null?state.persons.find(x=>x.id===pid):null;
         return`<div class="bed-slot ${p?'occupied':''}"
+          ${p?`draggable="true" ondragstart="onPersonDragStart(event,${pid})" ondragend="onPersonDragEnd(event)" title="拖曳可移動到其他空床位"`:''}
           ondragover="event.preventDefault();this.classList.add('drag-over')"
           ondragleave="this.classList.remove('drag-over')"
           ondrop="onBedDrop(event,'${roomId}',${i})">
-          ${p?`<button class="bed-remove" onclick="unassignBed('${roomId}',${i})">✕</button>
+          ${p?`<button class="bed-remove" onclick="event.stopPropagation();unassignBed('${roomId}',${i})">✕</button>
             <div style="width:26px;height:26px;border-radius:50%;background:${avColor(p.id)};color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">${avLetter(p.name)}</div>
             <div class="bed-name">${p.name}${p.gender==='F'?' ♀':''}</div>
             <div class="bed-dept">${p.dept||''}</div>
