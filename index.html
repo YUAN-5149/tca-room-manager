@@ -24,7 +24,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 .main{display:flex;flex:1;overflow:hidden;min-height:0}
 
 /* ── Left sidebar ── */
-.sidebar{width:248px;background:white;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;zoom:1.15}
+.sidebar{width:225px;background:white;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;zoom:1.3}
 .sidebar-tabs{display:flex;border-bottom:1px solid #e2e8f0;flex-shrink:0}
 .tab-btn{flex:1;padding:9px 4px;border:none;background:none;cursor:pointer;font-size:12px;color:#718096;border-bottom:2px solid transparent;font-family:inherit}
 .tab-btn.active{color:#3182ce;border-bottom-color:#3182ce;font-weight:600}
@@ -108,7 +108,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 .img-upload-hint p{font-size:13px}
 
 /* ── Right panel ── */
-.right-panel{width:268px;background:white;border-left:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;zoom:1.15}
+.right-panel{width:245px;background:white;border-left:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;zoom:1.3}
 .panel-header{padding:10px 12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
 .panel-header h3{font-size:13px;color:#2d3748}
 .panel-body{flex:1;overflow-y:auto;padding:10px}
@@ -158,11 +158,21 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 .date-filter label{font-size:11px;color:#4a5568;display:block;margin-bottom:3px}
 .date-filter input{width:100%;padding:4px 7px;border:1px solid #cbd5e0;border-radius:4px;font-size:11px;margin-bottom:5px}
 
-/* zoom controls */
-.zoom-ctrl{display:flex;gap:5px;align-items:center}
-.zoom-ctrl button{background:#e2e8f0;color:#4a5568;padding:3px 10px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-family:inherit}
-.zoom-ctrl button:hover{background:#cbd5e0}
-#zoom-label{font-size:11px;color:#4a5568;min-width:36px;text-align:center}
+/* zoom controls — 高對比，顯眼提示可放大縮小 */
+.zoom-ctrl{display:flex;gap:6px;align-items:center}
+.zoom-ctrl button{color:white;padding:5px 14px;border:none;border-radius:7px;cursor:pointer;font-size:16px;font-weight:800;font-family:inherit;box-shadow:0 2px 6px rgba(0,0,0,.25);transition:.15s;line-height:1}
+.zoom-ctrl button:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.3)}
+.zoom-ctrl button:active{transform:translateY(0)}
+.zoom-ctrl button:nth-child(1){background:#dd6b20}            /* － 縮小 橙 */
+.zoom-ctrl button:nth-child(3){background:#38a169}            /* ＋ 放大 綠 */
+.zoom-ctrl button:nth-child(4){background:#3182ce;font-size:13px;font-weight:700} /* 重置 藍 */
+#zoom-label{font-size:14px;font-weight:800;color:#1a202c;min-width:46px;text-align:center;background:#fff;border:1.5px solid #cbd5e0;border-radius:6px;padding:3px 4px}
+
+/* 面板拖移分隔線 — 拖動調整左右面板寬度（不超過中線） */
+.resizer{width:6px;flex-shrink:0;cursor:col-resize;background:#cbd5e0;position:relative;z-index:60;transition:background .15s}
+.resizer:hover,.resizer.dragging{background:#3182ce}
+.resizer::before{content:'⋮⋮';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#718096;font-size:11px;letter-spacing:-3px;pointer-events:none;writing-mode:vertical-rl}
+.resizer:hover::before,.resizer.dragging::before{color:white}
 
 /* ── Right-click context menu ── */
 #room-ctx-menu{
@@ -332,6 +342,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   .map-toolbar{flex-wrap:wrap;gap:6px}
   .floor-tabs{flex-wrap:wrap}
   .legend{display:none}
+  .resizer{display:none}   /* 手機抽屜模式不需分隔線 */
   .zoom-ctrl button{padding:4px 12px}
 }
 
@@ -435,6 +446,9 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     </div>
   </div>
 
+  <!-- 左面板拖移分隔線 -->
+  <div class="resizer" id="resizer-left" title="拖移調整左側面板寬度"></div>
+
   <!-- ── Map Area ── -->
   <div class="map-area">
     <!-- Floor tabs -->
@@ -471,6 +485,9 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       </div>
     </div>
   </div>
+
+  <!-- 右面板拖移分隔線 -->
+  <div class="resizer" id="resizer-right" title="拖移調整右側面板寬度"></div>
 
   <!-- ── Right Panel ── -->
   <div class="right-panel">
@@ -1976,6 +1993,48 @@ function closeMobilePanels() {
   document.getElementById('mobile-overlay').classList.remove('show');
 }
 
+// ─── 面板拖移調整寬度（不超過中線） ────────────────
+const PANEL_ZOOM = 1.3;       // 與 CSS .sidebar/.right-panel zoom 一致
+const PANEL_MIN_VISUAL = 180; // 面板最小視覺寬(px)
+
+function initPanelResizers() {
+  setupResizer('resizer-left',  'left');
+  setupResizer('resizer-right', 'right');
+
+  function setupResizer(id, side) {
+    const rez = document.getElementById(id);
+    if (!rez) return;
+    rez.addEventListener('mousedown', e => {
+      if (window.innerWidth <= 768) return;   // 手機抽屜模式不啟用
+      e.preventDefault();
+      rez.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMove(ev) {
+        const mid = window.innerWidth / 2;     // 中線
+        if (side === 'left') {
+          const visual = Math.max(PANEL_MIN_VISUAL, Math.min(mid, ev.clientX));
+          document.querySelector('.sidebar').style.width = (visual / PANEL_ZOOM) + 'px';
+        } else {
+          const visual = Math.max(PANEL_MIN_VISUAL, Math.min(mid, window.innerWidth - ev.clientX));
+          document.querySelector('.right-panel').style.width = (visual / PANEL_ZOOM) + 'px';
+        }
+      }
+      function onUp() {
+        rez.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        buildMap();   // 地圖區寬度已變，重繪並重算縮放佔位
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+}
+
 // ─── 雲端佈局同步 (Firebase) ───────────────────────
 let _lastPublishTs = 0;          // 避免自己發佈的回音造成跳動
 let _layoutCloudReady = false;   // Firebase 是否就緒
@@ -2161,6 +2220,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // Handle window resize
   window.addEventListener('resize', ()=>{ if(selectedRoom) renderRoomDetail(selectedRoom); });
+  initPanelResizers();   // 啟用面板拖移調整寬度
 });
 </script>
 
