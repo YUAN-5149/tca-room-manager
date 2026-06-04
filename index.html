@@ -576,6 +576,49 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 <!-- 受訓班期下拉清單（供人員表單使用） -->
 <datalist id="project-datalist"></datalist>
 
+<!-- 自助登記頁（住宿者掃 QR 進入，預設隱藏；僅顯示自己的登記表單） -->
+<div id="reg-page" style="display:none;position:fixed;inset:0;z-index:5000;background:#f0f4f8;overflow-y:auto">
+  <div style="max-width:480px;margin:0 auto;padding:18px">
+    <div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:white;border-radius:12px;padding:20px;margin-bottom:16px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">🏨 訓練中心住宿登記</div>
+      <div id="reg-project-name" style="font-size:14px;opacity:.92"></div>
+    </div>
+    <div id="reg-form-box" style="background:white;border-radius:12px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+      <div class="form-group"><label>姓名 *</label><input id="reg-name" placeholder="請輸入姓名"></div>
+      <div class="form-row">
+        <div class="form-group"><label>部門/單位</label><input id="reg-dept" placeholder="部門/單位"></div>
+        <div class="form-group"><label>職稱</label><input id="reg-title" placeholder="職稱"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>性別</label><select id="reg-gender"><option value="M">男</option><option value="F">女</option></select></div>
+        <div class="form-group"><label>聯絡電話(手機) *</label><input id="reg-phone" placeholder="手機號碼"></div>
+      </div>
+      <div class="form-group"><label>備註</label><input id="reg-note" placeholder="特殊需求／備註"></div>
+      <button class="btn btn-success" style="width:100%;padding:13px;font-size:16px;margin-top:10px" onclick="submitRegistration()">✓ 提交登記</button>
+      <div style="font-size:11px;color:#a0aec0;text-align:center;margin-top:10px">送出後承辦人員將為您安排床位</div>
+    </div>
+    <div id="reg-success-box" style="display:none;background:white;border-radius:12px;padding:26px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+      <div style="font-size:50px;margin-bottom:8px">✅</div>
+      <div style="font-size:19px;font-weight:700;color:#276749;margin-bottom:12px">登記成功！</div>
+      <div style="font-size:13px;color:#718096;margin-bottom:16px">您的住宿登記資料已送出，承辦人員將為您安排床位。</div>
+      <div id="reg-summary" style="text-align:left;background:#f7fafc;border-radius:8px;padding:14px;font-size:14px;line-height:1.9"></div>
+    </div>
+  </div>
+</div>
+
+<!-- QR 放大檢視 -->
+<div class="modal-overlay" id="qr-modal" onclick="this.classList.remove('show')">
+  <div class="modal" style="width:auto;max-width:340px;text-align:center" onclick="event.stopPropagation()">
+    <h3 id="qr-modal-title">班期登記 QR Code</h3>
+    <img id="qr-modal-img" src="" alt="QR" style="width:260px;height:260px;display:block;margin:8px auto;border:1px solid #e2e8f0;border-radius:8px">
+    <div style="font-size:11px;color:#718096;margin:8px 0">住宿者用手機掃描即可自助登記</div>
+    <div class="modal-actions" style="justify-content:center">
+      <a id="qr-download" href="" download="登記QR.png" class="btn btn-primary">下載 QR</a>
+      <button class="btn btn-cancel" onclick="document.getElementById('qr-modal').classList.remove('show')">關閉</button>
+    </div>
+  </div>
+</div>
+
 <!-- 專案（受訓班期）管理 -->
 <div class="modal-overlay" id="modal-projects">
   <div class="modal" style="width:460px">
@@ -1092,6 +1135,8 @@ function removePerson(id) {
     const fl=state.floors[p.assignedFloor||currentFloor];
     if(fl){const r=fl.rooms[p.assignedRoom];if(r)r.beds[p.assignedBed]=null;}
   }
+  // 自助登記者：連帶刪除雲端登記記錄，避免重載又被併入
+  if(p&&p.regId&&window.fbDeleteRegistration){ window.fbDeleteRegistration(p.regId).catch(()=>{}); }
   state.persons=state.persons.filter(x=>x.id!==id);
   state.schedules=state.schedules.filter(x=>x.personId!==id);
   saveState();renderAll();if(selectedRoom)renderRoomDetail(selectedRoom);toast('已移除人員');
@@ -1156,19 +1201,22 @@ function renderProjectList() {
     const dates = (p.startDate || p.endDate) ? `${p.startDate||'?'} ~ ${p.endDate||'?'}` : '';
     const insts = p.instructors || (p.instructor ? [p.instructor] : []);
     const instStr = insts.filter(x=>x.name||x.title).map(x=>`${x.name||'—'}${x.title?'（'+x.title+'）':''}`).join('、') || '—';
-    return `<div onclick="openProjectForm(${p.id})" style="cursor:pointer;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;margin-bottom:7px;background:#f7fafc">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:700;color:#2b6cb0">${p.name}</div>
-        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeProject(${p.id})">✕</button>
+    const qrThumb = projectQrSrc(p, 100);
+    return `<div onclick="openProjectForm(${p.id})" style="cursor:pointer;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;margin-bottom:7px;background:#f7fafc;display:flex;gap:10px;align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+          <div style="font-weight:700;color:#2b6cb0">${p.name}</div>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeProject(${p.id})">✕</button>
+        </div>
+        ${dates?`<div style="font-size:10px;color:#718096;margin-top:2px">📅 ${dates}</div>`:''}
+        <div style="font-size:11px;color:#4a5568;margin-top:4px">👨‍🏫 教官（${insts.filter(x=>x.name||x.title).length}）：${instStr}</div>
+        <div style="font-size:11px;color:#4a5568;margin-top:2px">🎓 班代：${p.classRep?.name||'—'}${p.classRep?.phone?' ☎ '+p.classRep.phone:''}${p.classRep?.room?' · '+p.classRep.room:''}</div>
+        <div style="font-size:10px;color:#805ad5;margin-top:3px">目前登錄 ${cnt} 人${p.count?` / 學員 ${p.count} 人`:''}</div>
       </div>
-      ${dates?`<div style="font-size:10px;color:#718096;margin-top:2px">📅 ${dates}</div>`:''}
-      <div style="font-size:11px;color:#4a5568;margin-top:4px">
-        👨‍🏫 教官（${insts.filter(x=>x.name||x.title).length}）：${instStr}
+      <div style="flex-shrink:0;text-align:center" onclick="event.stopPropagation();showQRLarge(${p.id})" title="點擊放大／下載｜住宿者掃碼自助登記">
+        <img src="${qrThumb}" alt="QR" style="width:62px;height:62px;border:1px solid #e2e8f0;border-radius:6px;display:block;background:white">
+        <div style="font-size:9px;color:#805ad5;margin-top:2px">📱 掃碼登記</div>
       </div>
-      <div style="font-size:11px;color:#4a5568;margin-top:2px">
-        🎓 班代：${p.classRep?.name||'—'}${p.classRep?.phone?' ☎ '+p.classRep.phone:''}${p.classRep?.room?' · '+p.classRep.room:''}
-      </div>
-      <div style="font-size:10px;color:#805ad5;margin-top:3px">目前登錄 ${cnt} 人${p.count?` / 學員 ${p.count} 人`:''}</div>
     </div>`;
   }).join('');
 }
@@ -1287,6 +1335,92 @@ function removeProjectFromForm() {
   closeModal('projectForm');
   removeProject(parseInt(idVal));
 }
+
+// ── 自助登記 QR Code ──────────────────────────────
+function projectRegUrl(p) {
+  return location.origin + location.pathname + '?reg=' + p.id + '&pn=' + encodeURIComponent(p.name);
+}
+function projectQrSrc(p, size) {
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(projectRegUrl(p));
+}
+function showQRLarge(projectId) {
+  const p = state.projects.find(x => x.id === projectId);
+  if (!p) return;
+  const big = projectQrSrc(p, 300);
+  document.getElementById('qr-modal-img').src = big;
+  document.getElementById('qr-download').href = big;
+  document.getElementById('qr-download').setAttribute('download', p.name + '_登記QR.png');
+  document.getElementById('qr-modal-title').textContent = p.name + ' — 登記 QR';
+  document.getElementById('qr-modal').classList.add('show');
+}
+
+// ── 住宿者自助登記頁（掃 QR 進入） ─────────────────
+let _regProjectId = '', _regProjectName = '';
+function initRegisterMode(projectId, projectName) {
+  _regProjectId = projectId || '';
+  _regProjectName = projectName || '';
+  const hdr = document.querySelector('.header'); if (hdr) hdr.style.display = 'none';
+  const main = document.querySelector('.main'); if (main) main.style.display = 'none';
+  document.querySelectorAll('.mobile-overlay,#edit-mode-bar').forEach(el => el.style.display = 'none');
+  const rp = document.getElementById('reg-page');
+  rp.style.display = 'block';
+  document.getElementById('reg-project-name').textContent = _regProjectName ? ('受訓班期：' + _regProjectName) : '住宿自助登記';
+}
+function submitRegistration() {
+  const name = document.getElementById('reg-name').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  if (!name) { alert('請輸入姓名'); return; }
+  if (!phone) { alert('請輸入聯絡電話'); return; }
+  if (!window.fbAddRegistration) { alert('雲端連線中，請稍候再試…'); return; }
+  const data = {
+    projectId: _regProjectId, projectName: _regProjectName,
+    name, dept: document.getElementById('reg-dept').value.trim(),
+    title: document.getElementById('reg-title').value.trim(),
+    gender: document.getElementById('reg-gender').value,
+    phone, note: document.getElementById('reg-note').value.trim(),
+    ts: Date.now()
+  };
+  const btn = document.querySelector('#reg-form-box button');
+  if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
+  window.fbAddRegistration(data).then(() => {
+    document.getElementById('reg-form-box').style.display = 'none';
+    document.getElementById('reg-success-box').style.display = 'block';
+    document.getElementById('reg-summary').innerHTML =
+      `<div><b>姓名：</b>${name}</div>
+       <div><b>受訓班期：</b>${_regProjectName || '—'}</div>
+       <div><b>部門：</b>${data.dept || '—'}</div>
+       <div><b>職稱：</b>${data.title || '—'}</div>
+       <div><b>性別：</b>${data.gender === 'F' ? '女' : '男'}</div>
+       <div><b>電話：</b>${phone}</div>
+       ${data.note ? `<div><b>備註：</b>${data.note}</div>` : ''}`;
+  }).catch(e => {
+    alert('提交失敗：' + (e.message || e));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ 提交登記'; }
+  });
+}
+
+// ── 管理端：監聽自助登記，自動併入人員清單 ──────────
+function initRegistrationWatch() {
+  if (!window.fbWatchRegistrations) { setTimeout(initRegistrationWatch, 800); return; }
+  window.fbWatchRegistrations((regs) => {
+    let added = 0;
+    regs.forEach(r => {
+      if (!state.persons.some(p => p.regId === r._id)) {
+        state.persons.push({
+          id: state.nextPersonId++,
+          name: r.name || '(未填名)', classPeriod: r.projectName || '',
+          dept: r.dept || '', title: r.title || '', gender: r.gender || 'M',
+          phone: r.phone || '', note: r.note || '',
+          assignedFloor: null, assignedRoom: null, assignedBed: null,
+          regId: r._id, selfRegistered: true
+        });
+        added++;
+      }
+    });
+    if (added > 0) { saveState(); renderAll(); toast(`📥 收到 ${added} 筆自助登記`); }
+  });
+}
+window.onRegCloudReady = () => { /* Firebase 就緒後由 init 啟動 watch */ };
 
 // ─── Rooms ────────────────────────────────────────
 function renderRoomList() {
@@ -2519,6 +2653,12 @@ function renderAll() {
 
 // ─── Init ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // 登記模式：住宿者掃 QR 進入，只顯示自助登記表單，不載入管理介面
+  const params = new URLSearchParams(location.search);
+  if (params.has('reg')) {
+    initRegisterMode(params.get('reg'), params.get('pn') || '');
+    return;
+  }
   loadState(); loadImgCache(); autoCacheFloorImgs();
   renderAll();
   document.querySelectorAll('.modal-overlay').forEach(el=>{
@@ -2528,13 +2668,14 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', ()=>{ if(selectedRoom) renderRoomDetail(selectedRoom); });
   initPanelResizers();   // 啟用面板拖移調整寬度
   updateProjectDatalist();   // 初始化班期下拉清單
+  initRegistrationWatch();   // 監聽自助登記，自動併入人員
 });
 </script>
 
 <!-- ═══ Firebase 雲端佈局同步 ═══ -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBvOGLCl80jWJ7LzubbrJpVf7c9_nmNbv4",
@@ -2561,8 +2702,17 @@ try {
     }
   }, (err) => console.warn('[layout-sync] 監聽錯誤:', err));
 
+  // ── 自助登記集合（住宿者掃 QR 提交） ──
+  const regCol = collection(fdb, 'tca_reg_poll');
+  window.fbAddRegistration = (data) => addDoc(regCol, data);
+  window.fbDeleteRegistration = (docId) => deleteDoc(doc(fdb, 'tca_reg_poll', docId));
+  window.fbWatchRegistrations = (cb) => onSnapshot(regCol, (snap) => {
+    const arr = []; snap.forEach(d => arr.push({ _id: d.id, ...d.data() })); cb(arr);
+  }, (err) => console.warn('[reg-sync] 監聽錯誤:', err));
+
   // 通知主程式雲端已就緒
   if (typeof window.onLayoutCloudReady === 'function') window.onLayoutCloudReady();
+  if (typeof window.onRegCloudReady === 'function') window.onRegCloudReady();
   console.log('[layout-sync] Firebase 已連線');
 } catch (e) {
   console.error('[layout-sync] Firebase 初始化失敗:', e);
