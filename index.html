@@ -302,6 +302,12 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 .mobile-toggle{display:none}
 .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050}
 .mobile-overlay.show{display:block}
+/* 抽屜頂部「返回地圖」按鈕（桌機隱藏，手機顯示） */
+.drawer-close{display:none;align-items:center;justify-content:center;gap:7px;
+  width:100%;flex-shrink:0;padding:11px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#1a365d,#2b6cb0);color:white;
+  font-size:14px;font-weight:700;font-family:inherit}
+.drawer-close:active{filter:brightness(.9)}
 
 /* 平板 (≤1024px)：縮窄側欄 */
 @media (max-width:1024px){
@@ -319,20 +325,20 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 
   .main{position:relative}
 
-  /* 左側欄 → 左側抽屜 */
+  /* 左側欄 → 左側抽屜（覆寫 zoom 避免溢出跑版） */
   .sidebar{
     position:fixed;top:0;left:0;bottom:0;z-index:1100;
-    width:82vw;max-width:300px;
+    width:78vw;max-width:360px;zoom:1.1;
     transform:translateX(-100%);
     transition:transform .28s ease;
     box-shadow:2px 0 18px rgba(0,0,0,.3);
   }
   .sidebar.open{transform:translateX(0)}
 
-  /* 右側欄 → 右側抽屜 */
+  /* 右側欄 → 右側抽屜（覆寫 zoom 避免 fixed+zoom 跑版） */
   .right-panel{
     position:fixed;top:0;right:0;bottom:0;z-index:1100;
-    width:86vw;max-width:330px;
+    width:80vw;max-width:360px;zoom:1.1;
     transform:translateX(100%);
     transition:transform .28s ease;
     box-shadow:-2px 0 18px rgba(0,0,0,.3);
@@ -346,6 +352,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   .legend{display:none}
   .resizer{display:none}   /* 手機抽屜模式不需分隔線 */
   .zoom-ctrl button{padding:4px 12px}
+  .drawer-close{display:flex !important}   /* 抽屜頂部返回按鈕 */
 }
 
 /* 小手機 (≤480px) */
@@ -389,6 +396,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 <div class="main">
   <!-- ── Left Sidebar ── -->
   <div class="sidebar">
+    <button class="drawer-close" onclick="closeMobilePanels()">◀ 返回地圖</button>
     <div class="sidebar-tabs">
       <button class="tab-btn active" onclick="switchTab('stats')">統計</button>
       <button class="tab-btn" onclick="switchTab('persons')">人員</button>
@@ -493,6 +501,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 
   <!-- ── Right Panel ── -->
   <div class="right-panel">
+    <button class="drawer-close" onclick="closeMobilePanels()">返回地圖 ▶</button>
     <div class="panel-header">
       <h3 id="panel-title">選擇房間查看詳情</h3>
       <button class="btn btn-sm btn-primary" id="btn-edit-room" style="display:none" onclick="openModal('editRoom')">編輯</button>
