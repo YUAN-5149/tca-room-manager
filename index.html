@@ -2445,7 +2445,7 @@ function assignPersonToBed(pid, roomId, bedIdx) {
 
 // ─── Export ───────────────────────────────────────
 function exportData() {
-  const rows=[['樓層','房號','房型','床位','人員','性別','受訓班期','部門','職稱','入住日','退房日','備註']];
+  const rows=[['樓層','房號','房型','床位','人員','性別','受訓班期','部門','職稱','電話(手機)','入住日','退房日','備註']];
   ['5F','6F'].forEach(fl=>{
     Object.values(state.floors[fl].rooms).forEach(room=>{
       room.beds.forEach((pid,i)=>{
@@ -2453,7 +2453,7 @@ function exportData() {
         const s=state.schedules.filter(x=>x.floor===fl&&x.roomId===room.id&&x.bedIdx===i).slice(-1)[0];
         rows.push([fl,room.number,room.type,i+1,
           p?p.name:'', p?(p.gender==='F'?'女':'男'):'', p?p.classPeriod||'':'',
-          p?p.dept||'':'', p?p.title||'':'',
+          p?p.dept||'':'', p?p.title||'':'', p?p.phone||'':'',
           s?s.checkIn:'', s?s.checkOut:'', s?s.note||'':'']);
       });
     });
