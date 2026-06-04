@@ -142,6 +142,12 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 .form-group input,.form-group select{width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;font-family:inherit}
 .form-group input:focus,.form-group select:focus{outline:none;border-color:#3182ce;box-shadow:0 0 0 3px rgba(49,130,206,.12)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+/* 教官分頁 */
+.inst-tabs{display:flex;gap:4px;margin-bottom:8px}
+.inst-tab{flex:1;padding:5px 4px;border:1px solid #cbd5e0;background:#f7fafc;border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;color:#718096;transition:.12s}
+.inst-tab:hover{background:#ebf8ff}
+.inst-tab.active{background:#3182ce;color:white;border-color:#3182ce;font-weight:700}
+.inst-tab.filled::after{content:'●';color:#38a169;font-size:8px;margin-left:3px;vertical-align:middle}
 .modal-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:14px}
 
 .toast{position:fixed;bottom:18px;right:18px;z-index:2000;background:#2d3748;color:white;padding:10px 16px;border-radius:7px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.3);transform:translateY(50px);opacity:0;transition:.28s}
@@ -594,7 +600,13 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       <div class="form-group"><label>結訓日期</label><input type="date" id="pf-end"></div>
     </div>
 
-    <div class="section-title" style="margin:12px 0 6px">👨‍🏫 教官資訊</div>
+    <div class="section-title" style="margin:12px 0 6px">👨‍🏫 教官資訊（最多 4 名）</div>
+    <div class="inst-tabs" id="inst-tabs">
+      <button type="button" class="inst-tab active" onclick="switchInstructorTab(0)">教官1</button>
+      <button type="button" class="inst-tab" onclick="switchInstructorTab(1)">教官2</button>
+      <button type="button" class="inst-tab" onclick="switchInstructorTab(2)">教官3</button>
+      <button type="button" class="inst-tab" onclick="switchInstructorTab(3)">教官4</button>
+    </div>
     <div class="form-row">
       <div class="form-group"><label>教官姓名</label><input id="pf-inst-name" placeholder="教官姓名"></div>
       <div class="form-group"><label>職稱／階級</label><input id="pf-inst-title" placeholder="例：教官／消防正"></div>
@@ -611,7 +623,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     </div>
     <div class="form-row">
       <div class="form-group"><label>班代住宿房號</label><input id="pf-rep-room" placeholder="例：6F 607"></div>
-      <div class="form-group"><label>預計人數</label><input type="number" id="pf-count" min="0" placeholder="受訓人數"></div>
+      <div class="form-group"><label>學員人數</label><input type="number" id="pf-count" min="0" placeholder="學員人數"></div>
     </div>
 
     <div class="form-group"><label>備註</label><input id="pf-note" placeholder="備註"></div>
@@ -1142,6 +1154,8 @@ function renderProjectList() {
     // 該班期目前入住人數（依人員 classPeriod 比對）
     const cnt = state.persons.filter(x => x.classPeriod === p.name).length;
     const dates = (p.startDate || p.endDate) ? `${p.startDate||'?'} ~ ${p.endDate||'?'}` : '';
+    const insts = p.instructors || (p.instructor ? [p.instructor] : []);
+    const instStr = insts.filter(x=>x.name||x.title).map(x=>`${x.name||'—'}${x.title?'（'+x.title+'）':''}`).join('、') || '—';
     return `<div onclick="openProjectForm(${p.id})" style="cursor:pointer;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;margin-bottom:7px;background:#f7fafc">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-weight:700;color:#2b6cb0">${p.name}</div>
@@ -1149,15 +1163,47 @@ function renderProjectList() {
       </div>
       ${dates?`<div style="font-size:10px;color:#718096;margin-top:2px">📅 ${dates}</div>`:''}
       <div style="font-size:11px;color:#4a5568;margin-top:4px">
-        👨‍🏫 教官：${p.instructor?.name||'—'}${p.instructor?.title?'（'+p.instructor.title+'）':''}
-        ${p.instructor?.phone?' ☎ '+p.instructor.phone:''}
+        👨‍🏫 教官（${insts.filter(x=>x.name||x.title).length}）：${instStr}
       </div>
       <div style="font-size:11px;color:#4a5568;margin-top:2px">
         🎓 班代：${p.classRep?.name||'—'}${p.classRep?.phone?' ☎ '+p.classRep.phone:''}${p.classRep?.room?' · '+p.classRep.room:''}
       </div>
-      <div style="font-size:10px;color:#805ad5;margin-top:3px">目前登錄 ${cnt} 人${p.count?` / 預計 ${p.count} 人`:''}</div>
+      <div style="font-size:10px;color:#805ad5;margin-top:3px">目前登錄 ${cnt} 人${p.count?` / 學員 ${p.count} 人`:''}</div>
     </div>`;
   }).join('');
+}
+
+// 教官分頁暫存（最多 4 名）
+let _instDraft = [{},{},{},{}];
+let _instTab = 0;
+
+function loadInstToFields(idx) {
+  const d = _instDraft[idx] || {};
+  document.getElementById('pf-inst-name').value  = d.name  || '';
+  document.getElementById('pf-inst-title').value = d.title || '';
+  document.getElementById('pf-inst-unit').value  = d.unit  || '';
+  document.getElementById('pf-inst-phone').value = d.phone || '';
+}
+function saveFieldsToInst(idx) {
+  _instDraft[idx] = {
+    name:  document.getElementById('pf-inst-name').value.trim(),
+    title: document.getElementById('pf-inst-title').value.trim(),
+    unit:  document.getElementById('pf-inst-unit').value.trim(),
+    phone: document.getElementById('pf-inst-phone').value.trim(),
+  };
+}
+function updateInstTabUI() {
+  document.querySelectorAll('#inst-tabs .inst-tab').forEach((b,i) => {
+    b.classList.toggle('active', i === _instTab);
+    const d = _instDraft[i] || {};
+    b.classList.toggle('filled', !!(d.name||d.title||d.unit||d.phone) && i !== _instTab);
+  });
+}
+function switchInstructorTab(idx) {
+  saveFieldsToInst(_instTab);   // 先保存當前分頁
+  _instTab = idx;
+  loadInstToFields(idx);
+  updateInstTabUI();
 }
 
 function openProjectForm(id) {
@@ -1168,10 +1214,13 @@ function openProjectForm(id) {
   document.getElementById('pf-name').value     = p?.name || '';
   document.getElementById('pf-start').value    = p?.startDate || '';
   document.getElementById('pf-end').value      = p?.endDate || '';
-  document.getElementById('pf-inst-name').value  = p?.instructor?.name  || '';
-  document.getElementById('pf-inst-title').value = p?.instructor?.title || '';
-  document.getElementById('pf-inst-unit').value  = p?.instructor?.unit  || '';
-  document.getElementById('pf-inst-phone').value = p?.instructor?.phone || '';
+  // 載入教官陣列（相容舊版單筆 instructor）
+  let insts = p?.instructors;
+  if (!insts) insts = p?.instructor ? [p.instructor] : [];
+  _instDraft = [0,1,2,3].map(i => insts[i] ? {...insts[i]} : {});
+  _instTab = 0;
+  loadInstToFields(0);
+  updateInstTabUI();
   document.getElementById('pf-rep-name').value  = p?.classRep?.name  || '';
   document.getElementById('pf-rep-phone').value = p?.classRep?.phone || '';
   document.getElementById('pf-rep-room').value  = p?.classRep?.room  || '';
@@ -1185,17 +1234,14 @@ function openProjectForm(id) {
 function saveProject() {
   const name = document.getElementById('pf-name').value.trim();
   if (!name) { toast('請輸入班期名稱', 'err'); return; }
+  saveFieldsToInst(_instTab);   // 保存當前分頁
+  const instructors = _instDraft.filter(d => d.name || d.title || d.unit || d.phone);
   const idVal = document.getElementById('pf-id').value;
   const data = {
     name,
     startDate: document.getElementById('pf-start').value,
     endDate:   document.getElementById('pf-end').value,
-    instructor: {
-      name:  document.getElementById('pf-inst-name').value.trim(),
-      title: document.getElementById('pf-inst-title').value.trim(),
-      unit:  document.getElementById('pf-inst-unit').value.trim(),
-      phone: document.getElementById('pf-inst-phone').value.trim(),
-    },
+    instructors,
     classRep: {
       name:  document.getElementById('pf-rep-name').value.trim(),
       phone: document.getElementById('pf-rep-phone').value.trim(),
@@ -1209,6 +1255,7 @@ function saveProject() {
     if (p) {
       const oldName = p.name;
       Object.assign(p, data);
+      delete p.instructor;   // 清除舊版單筆教官欄位
       // 班期改名時同步更新已登錄人員的 classPeriod
       if (oldName !== name) state.persons.forEach(x => { if (x.classPeriod === oldName) x.classPeriod = name; });
     }
