@@ -808,9 +808,19 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <div class="form-group">
       <label>調整樓層</label>
       <select id="bs-floor" onchange="updateBsPreview()" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;font-family:inherit">
-        <option value="6F">6F（六樓）</option>
-        <option value="5F">5F（五樓）</option>
-        <option value="ALL">全部（5F + 6F）</option>
+        <optgroup label="── 6F ──">
+          <option value="6F-even">6F 偶數房間（602、604、606…）</option>
+          <option value="6F-odd" >6F 奇數房間（601、603、607…）</option>
+          <option value="6F"     >6F 全部</option>
+        </optgroup>
+        <optgroup label="── 5F ──">
+          <option value="5F-even">5F 偶數房間（502、504、506…）</option>
+          <option value="5F-odd" >5F 奇數房間（501、503、507…）</option>
+          <option value="5F"     >5F 全部</option>
+        </optgroup>
+        <optgroup label="────────">
+          <option value="ALL">全部（5F + 6F）</option>
+        </optgroup>
       </select>
     </div>
     <div class="form-row">
@@ -1674,9 +1684,31 @@ function renderScheduleSidebar() {
 }
 
 // ─── 批次調整排程日期 ─────────────────────────────
+const BS_LABELS = {
+  '6F-even':'6F 偶數房間', '6F-odd':'6F 奇數房間', '6F':'6F 全部',
+  '5F-even':'5F 偶數房間', '5F-odd':'5F 奇數房間', '5F':'5F 全部',
+  'ALL':'5F+6F 全部'
+};
+
+// 依選項過濾排程
+function getBsTargets(val) {
+  return state.schedules.filter(s => {
+    const n = parseInt(s.roomId);
+    switch(val) {
+      case '6F-even': return s.floor==='6F' && !isNaN(n) && n%2===0;
+      case '6F-odd':  return s.floor==='6F' && !isNaN(n) && n%2!==0;
+      case '5F-even': return s.floor==='5F' && !isNaN(n) && n%2===0;
+      case '5F-odd':  return s.floor==='5F' && !isNaN(n) && n%2!==0;
+      case '6F':      return s.floor==='6F';
+      case '5F':      return s.floor==='5F';
+      case 'ALL':     return true;
+      default:        return false;
+    }
+  });
+}
+
 function openBatchScheduleModal() {
-  // 預設：6F，入住 2026-06-04，退房 2026-11-30
-  document.getElementById('bs-floor').value    = '6F';
+  document.getElementById('bs-floor').value    = '6F-even';
   document.getElementById('bs-checkin').value  = '2026-06-04';
   document.getElementById('bs-checkout').value = '2026-11-30';
   updateBsPreview();
@@ -1684,32 +1716,31 @@ function openBatchScheduleModal() {
 }
 
 function updateBsPreview() {
-  const fl = document.getElementById('bs-floor').value;
-  const ci = document.getElementById('bs-checkin').value;
-  const co = document.getElementById('bs-checkout').value;
-  const el = document.getElementById('bs-preview');
+  const val = document.getElementById('bs-floor').value;
+  const ci  = document.getElementById('bs-checkin').value;
+  const co  = document.getElementById('bs-checkout').value;
+  const el  = document.getElementById('bs-preview');
   if (!el) return;
-  const targets = state.schedules.filter(s => fl === 'ALL' || s.floor === fl);
+  const targets = getBsTargets(val);
+  el.style.display = 'block';
   if (!targets.length) {
-    el.style.display = 'block';
-    el.innerHTML = '<span style="color:#c53030">⚠️ 該樓層目前無住宿排程資料。</span>';
+    el.innerHTML = '<span style="color:#c53030">⚠️ 該區段目前無住宿排程資料。</span>';
     return;
   }
-  el.style.display = 'block';
-  el.innerHTML = `📊 將更新 <b>${fl==='ALL'?'5F+6F':fl}</b> 共 <b>${targets.length}</b> 筆排程`
+  el.innerHTML = `📊 將更新 <b>${BS_LABELS[val]||val}</b> 共 <b>${targets.length}</b> 筆排程`
     + (ci&&co ? `，入住 <b>${ci}</b> → 退房 <b>${co}</b>` : '');
 }
 
 function batchUpdateSchedule() {
-  const fl = document.getElementById('bs-floor').value;
-  const ci = document.getElementById('bs-checkin').value;
-  const co = document.getElementById('bs-checkout').value;
+  const val = document.getElementById('bs-floor').value;
+  const ci  = document.getElementById('bs-checkin').value;
+  const co  = document.getElementById('bs-checkout').value;
   if (!ci || !co) { toast('請填寫入住與退房日期', 'err'); return; }
   if (ci >= co)   { toast('退房日期須晚於入住日期', 'err'); return; }
-  const targets = state.schedules.filter(s => fl === 'ALL' || s.floor === fl);
-  if (!targets.length) { toast('該樓層無排程資料', 'err'); return; }
-  const label = fl === 'ALL' ? '5F+6F' : fl;
-  if (!confirm(`確定將 ${label} 共 ${targets.length} 筆排程\n統一更新為：${ci} ～ ${co}？`)) return;
+  const targets = getBsTargets(val);
+  if (!targets.length) { toast('該區段無排程資料', 'err'); return; }
+  const label = BS_LABELS[val] || val;
+  if (!confirm(`確定將「${label}」共 ${targets.length} 筆排程\n統一更新為：${ci} ～ ${co}？`)) return;
   targets.forEach(s => { s.checkIn = ci; s.checkOut = co; });
   saveState();
   closeModal('batchSchedule');
