@@ -488,18 +488,17 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
           <div class="legend-item"><div class="legend-box" style="background:#fed7d7;border-color:#e53e3e"></div>客滿</div>
           <div class="legend-item"><div class="legend-box" style="background:#ffc0cb;border-color:#d53f8c"></div>女性</div>
         </div>
-        <div class="zoom-ctrl">
+        <div class="zoom-ctrl" style="align-items:center">
+          <span style="font-size:11px;color:#4a5568;font-weight:600;white-space:nowrap;margin-right:4px">圖面大小調整</span>
           <button onclick="zoomMap(-0.1)">－</button>
           <span id="zoom-label">50%</span>
           <button onclick="zoomMap(0.1)">＋</button>
-          <button onclick="resetZoom()">重置</button>
+          <button onclick="confirmResetZoom()" title="重置圖面大小為預設值">重置</button>
         </div>
         <button class="btn btn-sm" style="background:#e9d8fd;color:#553c9a;white-space:nowrap" onclick="openModal('addLabel')" title="新增倉庫/標籤">＋ 新增標籤</button>
-        <!-- Image upload -->
-        <label style="cursor:pointer;font-size:11px;color:#3182ce;white-space:nowrap" title="上傳底圖">
-          🖼️ 更換底圖
-          <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
-        </label>
+        <!-- Image upload（需確認後才開啟檔案選擇） -->
+        <button class="btn btn-sm" style="background:#ebf8ff;color:#3182ce;white-space:nowrap;border:1px solid #bee3f8" onclick="confirmImgUpload()" title="更換底圖">🖼️ 更換底圖</button>
+        <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
       </div>
     </div>
 
@@ -2613,6 +2612,17 @@ function zoomMap(d) {
   applyZoomSpacing();
 }
 function resetZoom(){ mapZoom=0.5; zoomMap(0); }   // 重置回預設 50%
+
+function confirmResetZoom() {
+  if (!confirm('確定要將圖面大小重置為預設值（50%）？')) return;
+  resetZoom();
+  toast('圖面大小已重置為 50%');
+}
+
+function confirmImgUpload() {
+  if (!confirm(`確定要更換 ${currentFloor} 的底圖？\n上傳後將覆蓋目前底圖，此操作無法復原。`)) return;
+  document.getElementById('img-upload').click();
+}
 
 // 用負 margin 補償 transform scale 不縮小佔位的問題，消除縮放後的空白捲動區
 function applyZoomSpacing() {
