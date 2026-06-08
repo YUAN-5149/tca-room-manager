@@ -462,6 +462,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
         <input type="date" id="filter-date" oninput="renderScheduleSidebar()">
         <button class="btn btn-sm btn-cancel" style="width:100%" onclick="document.getElementById('filter-date').value='';renderScheduleSidebar()">清除</button>
       </div>
+      <button class="btn btn-sm btn-warning" style="width:100%;margin-bottom:8px" onclick="openBatchScheduleModal()">⚙️ 批次調整排程日期</button>
       <div id="schedule-list"></div>
     </div>
 
@@ -792,6 +793,34 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <div class="modal-actions">
       <button class="btn btn-cancel" onclick="closeModal('addLabel')">取消</button>
       <button class="btn btn-success" id="btn-add-label-action" onclick="doAddLabelOrRoom()">新增到地圖</button>
+    </div>
+  </div>
+</div>
+
+<!-- 批次調整排程日期 Modal -->
+<div class="modal-overlay" id="modal-batchSchedule">
+  <div class="modal" style="width:360px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0">⚙️ 批次調整排程日期</h3>
+      <button onclick="closeModal('batchSchedule')" title="關閉" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px;transition:.15s" onmouseover="this.style.color='#e53e3e'" onmouseout="this.style.color='#a0aec0'">✕</button>
+    </div>
+    <div style="font-size:11px;color:#718096;margin-bottom:12px">將選定樓層的所有住宿排程，統一更新為指定的入住與退房日期。</div>
+    <div class="form-group">
+      <label>調整樓層</label>
+      <select id="bs-floor" onchange="updateBsPreview()" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;font-family:inherit">
+        <option value="6F">6F（六樓）</option>
+        <option value="5F">5F（五樓）</option>
+        <option value="ALL">全部（5F + 6F）</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>入住日期 *</label><input type="date" id="bs-checkin" oninput="updateBsPreview()"></div>
+      <div class="form-group"><label>退房日期 *</label><input type="date" id="bs-checkout" oninput="updateBsPreview()"></div>
+    </div>
+    <div id="bs-preview" style="font-size:11px;color:#4a5568;background:#f7fafc;border-radius:6px;padding:8px;margin-top:4px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('batchSchedule')">取消</button>
+      <button class="btn btn-warning" onclick="batchUpdateSchedule()">批次更新</button>
     </div>
   </div>
 </div>
@@ -1642,6 +1671,51 @@ function renderScheduleSidebar() {
       <button class="btn btn-danger btn-sm" onclick="removeSchedule(${s.id})">✕</button>
     </div>`;
   }).join('');
+}
+
+// ─── 批次調整排程日期 ─────────────────────────────
+function openBatchScheduleModal() {
+  // 預設：6F，入住 2026-06-04，退房 2026-11-30
+  document.getElementById('bs-floor').value    = '6F';
+  document.getElementById('bs-checkin').value  = '2026-06-04';
+  document.getElementById('bs-checkout').value = '2026-11-30';
+  updateBsPreview();
+  document.getElementById('modal-batchSchedule').classList.add('show');
+}
+
+function updateBsPreview() {
+  const fl = document.getElementById('bs-floor').value;
+  const ci = document.getElementById('bs-checkin').value;
+  const co = document.getElementById('bs-checkout').value;
+  const el = document.getElementById('bs-preview');
+  if (!el) return;
+  const targets = state.schedules.filter(s => fl === 'ALL' || s.floor === fl);
+  if (!targets.length) {
+    el.style.display = 'block';
+    el.innerHTML = '<span style="color:#c53030">⚠️ 該樓層目前無住宿排程資料。</span>';
+    return;
+  }
+  el.style.display = 'block';
+  el.innerHTML = `📊 將更新 <b>${fl==='ALL'?'5F+6F':fl}</b> 共 <b>${targets.length}</b> 筆排程`
+    + (ci&&co ? `，入住 <b>${ci}</b> → 退房 <b>${co}</b>` : '');
+}
+
+function batchUpdateSchedule() {
+  const fl = document.getElementById('bs-floor').value;
+  const ci = document.getElementById('bs-checkin').value;
+  const co = document.getElementById('bs-checkout').value;
+  if (!ci || !co) { toast('請填寫入住與退房日期', 'err'); return; }
+  if (ci >= co)   { toast('退房日期須晚於入住日期', 'err'); return; }
+  const targets = state.schedules.filter(s => fl === 'ALL' || s.floor === fl);
+  if (!targets.length) { toast('該樓層無排程資料', 'err'); return; }
+  const label = fl === 'ALL' ? '5F+6F' : fl;
+  if (!confirm(`確定將 ${label} 共 ${targets.length} 筆排程\n統一更新為：${ci} ～ ${co}？`)) return;
+  targets.forEach(s => { s.checkIn = ci; s.checkOut = co; });
+  saveState();
+  closeModal('batchSchedule');
+  renderAll();
+  if (selectedRoom) renderRoomDetail(selectedRoom);
+  toast(`✅ 已更新 ${targets.length} 筆排程（${label}）`);
 }
 
 function removeSchedule(id) {
