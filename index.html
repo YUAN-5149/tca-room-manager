@@ -622,7 +622,10 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 <!-- 專案（受訓班期）管理 -->
 <div class="modal-overlay" id="modal-projects">
   <div class="modal" style="width:460px">
-    <h3>📋 受訓班期專案管理</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0">📋 受訓班期專案管理</h3>
+      <button onclick="closeModal('projects')" title="關閉" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px;transition:.15s" onmouseover="this.style.color='#e53e3e'" onmouseout="this.style.color='#a0aec0'">✕</button>
+    </div>
     <div style="font-size:11px;color:#718096;margin-bottom:10px">建立班期後，新增人員時可直接從清單選擇。每個班期可登錄教官與班代資訊。</div>
     <div id="project-list" style="max-height:46vh;overflow-y:auto;margin-bottom:12px"></div>
     <div class="modal-actions">
@@ -635,7 +638,10 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 <!-- 新增/編輯班期表單 -->
 <div class="modal-overlay" id="modal-projectForm">
   <div class="modal" style="width:440px">
-    <h3 id="pf-title">新增受訓班期</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 id="pf-title" style="margin:0">新增受訓班期</h3>
+      <button onclick="closeModal('projectForm');openModal('projects')" title="返回班期列表" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px;transition:.15s" onmouseover="this.style.color='#e53e3e'" onmouseout="this.style.color='#a0aec0'">✕</button>
+    </div>
     <input type="hidden" id="pf-id">
     <div class="form-group"><label>受訓班期名稱 *</label><input id="pf-name" placeholder="例：114年消防人員特考第1期"></div>
     <div class="form-row">
