@@ -2656,7 +2656,7 @@ function confirmImgUpload() {
 function submitImgPwd() {
   const pwd    = (document.getElementById('img-pwd-input').value || '').trim();
   const errEl  = document.getElementById('img-pwd-err');
-  if (pwd !== '8600') {
+  if (pwd !== '8200') {
     if (errEl) errEl.style.display = 'block';
     const pwdEl = document.getElementById('img-pwd-input');
     if (pwdEl) { pwdEl.value = ''; pwdEl.focus(); }
