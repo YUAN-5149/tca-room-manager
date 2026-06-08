@@ -394,7 +394,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <button class="btn btn-light" onclick="openModal('projects')">📋 專案</button>
     <button class="btn btn-light" onclick="openModal('addPerson')">＋ 新增人員</button>
     <button class="btn btn-light" onclick="openModal('addSchedule')">📅 排定住宿</button>
-    <button class="btn btn-light" onclick="exportData()">📥 匯出</button>
+    <button class="btn btn-light" onclick="openModal('export')">📥 匯出</button>
     <button class="btn btn-success" id="btn-publish" onclick="publishLayout()" title="將目前完整資料（人員/房間/排程/位置）發佈到雲端，所有裝置即時同步">☁️ 發佈同步</button>
   </div>
 </div>
@@ -792,6 +792,43 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <div class="modal-actions">
       <button class="btn btn-cancel" onclick="closeModal('addLabel')">取消</button>
       <button class="btn btn-success" id="btn-add-label-action" onclick="doAddLabelOrRoom()">新增到地圖</button>
+    </div>
+  </div>
+</div>
+
+<!-- 匯出選項 Modal -->
+<div class="modal-overlay" id="modal-export">
+  <div class="modal" style="width:360px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0">📥 匯出設定</h3>
+      <button onclick="closeModal('export')" title="關閉" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px;transition:.15s" onmouseover="this.style.color='#e53e3e'" onmouseout="this.style.color='#a0aec0'">✕</button>
+    </div>
+    <div style="font-size:11px;color:#718096;margin-bottom:12px">選擇要匯出的樓層區段（可複選），各區段資料將並排呈現於同一 CSV 檔案中。</div>
+    <div class="section-title" style="margin-top:0">選擇匯出區段</div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 14px">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+        <input type="checkbox" id="exp-5f-even" checked style="width:15px;height:15px;cursor:pointer">
+        <span>5F 偶數房間 <span style="font-size:11px;color:#718096;font-weight:400">（502、504、506…）</span></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+        <input type="checkbox" id="exp-5f-odd" checked style="width:15px;height:15px;cursor:pointer">
+        <span>5F 奇數房間 <span style="font-size:11px;color:#718096;font-weight:400">（501、503、507…）</span></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+        <input type="checkbox" id="exp-6f-even" checked style="width:15px;height:15px;cursor:pointer">
+        <span>6F 偶數房間 <span style="font-size:11px;color:#718096;font-weight:400">（602、604、606…）</span></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+        <input type="checkbox" id="exp-6f-odd" checked style="width:15px;height:15px;cursor:pointer">
+        <span>6F 奇數房間 <span style="font-size:11px;color:#718096;font-weight:400">（601、603、607…）</span></span>
+      </label>
+    </div>
+    <div style="font-size:11px;color:#a0aec0;border-top:1px solid #e2e8f0;padding-top:10px;margin-bottom:12px">
+      💡 電話欄位自動以文字格式匯出，Excel 開啟不會去除開頭 0
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('export')">取消</button>
+      <button class="btn btn-success" onclick="exportData()">📥 匯出 CSV</button>
     </div>
   </div>
 </div>
@@ -2729,29 +2766,99 @@ function assignPersonToBed(pid, roomId, bedIdx) {
 
 // ─── Export ───────────────────────────────────────
 function exportData() {
-  const rows=[['樓層','房號','房型','床位','人員','性別','受訓班期','部門','職稱','電話(手機)','入住日','退房日','備註']];
-  ['5F','6F'].forEach(fl=>{
-    Object.values(state.floors[fl].rooms).forEach(room=>{
-      room.beds.forEach((pid,i)=>{
-        const p=pid!==null?state.persons.find(x=>x.id===pid):null;
-        const s=state.schedules.filter(x=>x.floor===fl&&x.roomId===room.id&&x.bedIdx===i).slice(-1)[0];
-        rows.push([fl,room.number,room.type,i+1,
-          p?p.name:'', p?(p.gender==='F'?'女':'男'):'', p?p.classPeriod||'':'',
-          p?p.dept||'':'', p?p.title||'':'', p?p.phone||'':'',
-          s?s.checkIn:'', s?s.checkOut:'', s?s.note||'':'']);
-      });
-    });
+  // ── 讀取勾選的匯出區段 ────────────────────────────
+  const DEFS = [
+    { key:'exp-5f-even', floor:'5F', label:'5F偶數房間', even:true  },
+    { key:'exp-5f-odd',  floor:'5F', label:'5F奇數房間', even:false },
+    { key:'exp-6f-even', floor:'6F', label:'6F偶數房間', even:true  },
+    { key:'exp-6f-odd',  floor:'6F', label:'6F奇數房間', even:false },
+  ];
+  const selections = DEFS.filter(d => {
+    const el = document.getElementById(d.key);
+    return el ? el.checked : true;
   });
-  const csv=rows.map((r,ri)=>r.map((c,ci)=>{
-    const s=String(c).replace(/"/g,'""');
-    // 電話(手機)欄位（index 9）資料列強制 ="..." 格式，讓 Excel 以文字讀取，保留開頭 0
-    if(ri>0&&ci===9&&c) return '="'+s+'"';
+  if (!selections.length) { toast('請至少勾選一個區段', 'err'); return; }
+
+  const COL_HDR = ['房號','房型','床位','人員','性別','受訓班期','部門','職稱','電話(手機)','入住日','退房日','備註'];
+  const NCOLS   = COL_HDR.length;   // 12
+  const PHONE_IDX = 8;              // 電話在每個區段的第 8 欄（0-based）
+
+  // ── 取得單一區段的所有資料列 ──────────────────────
+  function getSectionRows(floor, even) {
+    return Object.values(state.floors[floor]?.rooms || {})
+      .filter(r => { const n=parseInt(r.number); return !isNaN(n) && (even ? n%2===0 : n%2!==0); })
+      .sort((a,b) => parseInt(a.number)-parseInt(b.number))
+      .flatMap(room => room.beds.map((pid,i) => {
+        const p = pid!==null ? state.persons.find(x=>x.id===pid) : null;
+        const s = state.schedules.filter(x=>x.floor===floor&&x.roomId===room.id&&x.bedIdx===i).slice(-1)[0];
+        return [
+          room.number, room.type, i+1,
+          p?p.name:'',
+          p?(p.gender==='F'?'女':'男'):'',
+          p?p.classPeriod||'':'',
+          p?p.dept||'':'',
+          p?p.title||'':'',
+          p?p.phone||'':'',
+          s?s.checkIn:'',
+          s?s.checkOut:'',
+          s?s.note||'':''
+        ];
+      }));
+  }
+
+  const sectionRows = selections.map(s => getSectionRows(s.floor, s.even));
+  const maxRows = Math.max(...sectionRows.map(r=>r.length), 0);
+
+  // ── 計算每個區段中電話欄的絕對欄位 index ──────────
+  // 每個區段佔 NCOLS 欄，區段間隔 1 個空白分隔欄
+  const phoneColSet = new Set(
+    selections.map((_,idx) => idx*(NCOLS+1) + PHONE_IDX)
+  );
+
+  // ── 組合 CSV 行 ───────────────────────────────────
+  const csvRows = [];
+
+  // 第 1 行：各區段大標題（其餘欄位留空）
+  const titleRow = [];
+  selections.forEach((s,idx) => {
+    if (idx>0) titleRow.push('');          // 分隔欄
+    titleRow.push(s.label);
+    for (let c=1; c<NCOLS; c++) titleRow.push('');
+  });
+  csvRows.push(titleRow);
+
+  // 第 2 行：各欄位標題
+  const headerRow = [];
+  selections.forEach((_,idx) => {
+    if (idx>0) headerRow.push('');
+    headerRow.push(...COL_HDR);
+  });
+  csvRows.push(headerRow);
+
+  // 第 3 行起：資料（各區段並排）
+  for (let ri=0; ri<maxRows; ri++) {
+    const row = [];
+    selections.forEach((_,idx) => {
+      if (idx>0) row.push('');
+      const dataRow = sectionRows[idx][ri];
+      row.push(...(dataRow ? dataRow : Array(NCOLS).fill('')));
+    });
+    csvRows.push(row);
+  }
+
+  // ── 轉成 CSV 字串（電話欄強制文字格式） ──────────
+  const csv = csvRows.map((r,ri) => r.map((c,ci) => {
+    const s = String(c).replace(/"/g,'""');
+    if (ri>=2 && phoneColSet.has(ci) && c) return '="'+s+'"';
     return '"'+s+'"';
   }).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`住宿配置_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();toast('已匯出 5F+6F CSV');
+
+  closeModal('export');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'}));
+  a.download = `住宿配置_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast(`已匯出：${selections.map(s=>s.label).join('、')}`);
 }
 
 // ─── Render All ───────────────────────────────────
