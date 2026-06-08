@@ -740,23 +740,52 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   </div>
 </div>
 
-<!-- Add Label Modal -->
+<!-- Add Label / Room Modal -->
 <div class="modal-overlay" id="modal-addLabel">
-  <div class="modal" style="width:320px">
-    <h3>新增區域標籤</h3>
-    <div class="form-group"><label>標籤文字 *</label><input id="lbl-text" placeholder="例：倉庫、洗衣間"></div>
-    <div class="form-group"><label>背景顏色</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#e9d8fd|#805ad5" checked> 🟣 倉庫</label>
-        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#bee3f8|#3182ce"> 🔵 洗衣間</label>
-        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#fefcbf|#d69e2e"> 🟡 財產區</label>
-        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#fed7d7|#e53e3e"> 🔴 禁止</label>
-        <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#c6f6d5|#38a169"> 🟢 其他</label>
+  <div class="modal" style="width:380px">
+    <h3>新增到地圖</h3>
+    <!-- 分頁切換 -->
+    <div class="inst-tabs" style="margin-bottom:12px">
+      <button type="button" class="inst-tab active" id="add-tab-btn-label" onclick="switchAddTab('label')">🏷️ 區域標籤</button>
+      <button type="button" class="inst-tab" id="add-tab-btn-room" onclick="switchAddTab('room')">🏠 新增房間</button>
+    </div>
+    <!-- 區域標籤內容 -->
+    <div id="add-tab-label">
+      <div class="form-group"><label>標籤文字 *</label><input id="lbl-text" placeholder="例：倉庫、洗衣間"></div>
+      <div class="form-group"><label>背景顏色</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#e9d8fd|#805ad5" checked> 🟣 倉庫</label>
+          <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#bee3f8|#3182ce"> 🔵 洗衣間</label>
+          <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#fefcbf|#d69e2e"> 🟡 財產區</label>
+          <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#fed7d7|#e53e3e"> 🔴 禁止</label>
+          <label style="cursor:pointer;font-size:12px"><input type="radio" name="lbl-color" value="#c6f6d5|#38a169"> 🟢 其他</label>
+        </div>
+      </div>
+    </div>
+    <!-- 新增房間內容 -->
+    <div id="add-tab-room" style="display:none">
+      <div class="form-row">
+        <div class="form-group"><label>房號 *</label><input id="al-r-num" placeholder="例：529"></div>
+        <div class="form-group"><label>床位數 *</label><input type="number" id="al-r-beds" min="1" max="10" value="2"></div>
+      </div>
+      <div class="form-group"><label>房型</label>
+        <select id="al-r-type" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit">
+          <option>單人房</option><option selected>雙人房</option><option>三人房</option><option>四人房</option><option>多人房</option>
+        </select>
+      </div>
+      <div class="form-group"><label>樓層</label>
+        <select id="al-r-floor" style="width:100%;padding:7px;border:1px solid #cbd5e0;border-radius:5px;font-family:inherit">
+          <option value="5F">5F</option><option value="6F">6F</option>
+        </select>
+      </div>
+      <div class="form-group"><label>備註</label><input id="al-r-note" placeholder="備註（選填）"></div>
+      <div style="font-size:11px;color:#718096;background:#f7fafc;border-radius:5px;padding:7px;margin-top:2px">
+        💡 房間將放置於地圖中央，新增後可右鍵 → 允許拖移，將房間拖移至正確位置。
       </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-cancel" onclick="closeModal('addLabel')">取消</button>
-      <button class="btn btn-success" onclick="addLabel()">新增到地圖</button>
+      <button class="btn btn-success" id="btn-add-label-action" onclick="doAddLabelOrRoom()">新增到地圖</button>
     </div>
   </div>
 </div>
@@ -910,6 +939,21 @@ function loadState() {
 }
 function saveState() { localStorage.setItem('tca_v5', JSON.stringify(state)); }
 
+// 頁面重載後，將有自訂位置的房間恢復到 FLOOR_ROOMS，確保地圖上能正確顯示
+function restoreCustomRoomsToMap() {
+  ['5F','6F'].forEach(fl => {
+    const customPos = state.customPositions?.[fl] || {};
+    const rooms = state.floors[fl]?.rooms || {};
+    Object.keys(rooms).forEach(roomId => {
+      if (!FLOOR_ROOMS[fl]?.[roomId] && customPos[roomId]) {
+        if (!FLOOR_ROOMS[fl]) FLOOR_ROOMS[fl] = {};
+        const pos = customPos[roomId];
+        FLOOR_ROOMS[fl][roomId] = { x: pos.x ?? 42, y: pos.y ?? 42, w: pos.w ?? 9, h: pos.h ?? 7 };
+      }
+    });
+  });
+}
+
 // Stored images (base64)
 const imgCache = {};
 
@@ -961,6 +1005,7 @@ function openModal(id) {
   if(id==='editRoom' && selectedRoom) prepEditRoomModal();
   if(id==='projects') renderProjectList();
   if(id==='addPerson') updateProjectDatalist();
+  if(id==='addLabel'){ switchAddTab('label'); const sel=document.getElementById('al-r-floor');if(sel)sel.value=currentFloor; }
   document.getElementById('modal-'+id).classList.add('show');
 }
 function closeModal(id) { document.getElementById('modal-'+id).classList.remove('show'); }
@@ -1827,6 +1872,58 @@ function saveCustomPos(roomId, floor, x, y) {
 // (addDragToRoom is defined above in the Labels section)
 
 // ─── Labels (倉庫 / 洗衣間 etc.) ──────────────────
+
+// ── 新增標籤/房間分頁切換 ──────────────────────────
+let _addLabelTab = 'label';
+
+function switchAddTab(tab) {
+  _addLabelTab = tab;
+  const btnLabel = document.getElementById('add-tab-btn-label');
+  const btnRoom  = document.getElementById('add-tab-btn-room');
+  if (btnLabel) btnLabel.classList.toggle('active', tab === 'label');
+  if (btnRoom)  btnRoom.classList.toggle('active',  tab === 'room');
+  const tabLabel = document.getElementById('add-tab-label');
+  const tabRoom  = document.getElementById('add-tab-room');
+  if (tabLabel) tabLabel.style.display = tab === 'label' ? '' : 'none';
+  if (tabRoom)  tabRoom.style.display  = tab === 'room'  ? '' : 'none';
+  const actionBtn = document.getElementById('btn-add-label-action');
+  if (actionBtn) actionBtn.textContent = tab === 'label' ? '新增到地圖' : '新增房間';
+}
+
+function doAddLabelOrRoom() {
+  if (_addLabelTab === 'label') addLabel();
+  else addRoomFromLabel();
+}
+
+function addRoomFromLabel() {
+  const num  = document.getElementById('al-r-num').value.trim();
+  const beds = parseInt(document.getElementById('al-r-beds').value) || 2;
+  const fl   = document.getElementById('al-r-floor').value || currentFloor;
+  const type = document.getElementById('al-r-type').value;
+  const note = document.getElementById('al-r-note').value.trim();
+  if (!num) { toast('請輸入房號', 'err'); return; }
+  if (state.floors[fl]?.rooms[num]) { toast('房號已存在', 'err'); return; }
+  // 新增房間資料到 state
+  if (!state.floors[fl]) state.floors[fl] = { rooms: {} };
+  state.floors[fl].rooms[num] = { id:num, number:num, type, beds:Array(beds).fill(null), note };
+  // 加入 FLOOR_ROOMS（讓目前這個 session 的地圖能顯示），預設放置在地圖中央
+  const dp = { x:42, y:42, w:9, h:7 };
+  if (!FLOOR_ROOMS[fl]) FLOOR_ROOMS[fl] = {};
+  FLOOR_ROOMS[fl][num] = { ...dp };
+  // 儲存自訂位置，重載頁面後也能在地圖上還原
+  if (!state.customPositions) state.customPositions = {};
+  if (!state.customPositions[fl]) state.customPositions[fl] = {};
+  state.customPositions[fl][num] = { ...dp, r:0 };
+  saveState();
+  closeModal('addLabel');
+  // 重置欄位
+  ['al-r-num','al-r-note'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  const bedsEl=document.getElementById('al-r-beds'); if(bedsEl) bedsEl.value='2';
+  // 切換到對應樓層並更新畫面
+  if (fl !== currentFloor) switchFloor(fl); else renderAll();
+  toast(`已新增房間 ${fl} ${num}，右鍵可拖移至正確位置`);
+}
+
 function addLabel() {
   const text = document.getElementById('lbl-text').value.trim();
   if (!text) { toast('請輸入標籤文字', 'err'); return; }
@@ -2639,7 +2736,12 @@ function exportData() {
       });
     });
   });
-  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const csv=rows.map((r,ri)=>r.map((c,ci)=>{
+    const s=String(c).replace(/"/g,'""');
+    // 電話(手機)欄位（index 9）資料列強制 ="..." 格式，讓 Excel 以文字讀取，保留開頭 0
+    if(ri>0&&ci===9&&c) return '="'+s+'"';
+    return '"'+s+'"';
+  }).join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
   a.download=`住宿配置_${new Date().toISOString().slice(0,10)}.csv`;
@@ -2659,7 +2761,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initRegisterMode(params.get('reg'), params.get('pn') || '');
     return;
   }
-  loadState(); loadImgCache(); autoCacheFloorImgs();
+  loadState(); restoreCustomRoomsToMap(); loadImgCache(); autoCacheFloorImgs();
   renderAll();
   document.querySelectorAll('.modal-overlay').forEach(el=>{
     el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');});
