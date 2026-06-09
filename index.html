@@ -905,37 +905,60 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 
 <!-- 匯出選項 Modal -->
 <div class="modal-overlay" id="modal-export">
-  <div class="modal" style="width:360px">
+  <div class="modal" style="width:420px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <h3 style="margin:0">📥 匯出設定</h3>
       <button onclick="closeModal('export')" title="關閉" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px;transition:.15s" onmouseover="this.style.color='#e53e3e'" onmouseout="this.style.color='#a0aec0'">✕</button>
     </div>
-    <div style="font-size:11px;color:#718096;margin-bottom:12px">選擇要匯出的樓層區段（可複選），各區段資料將並排呈現於同一 CSV 檔案中。</div>
-    <div class="section-title" style="margin-top:0">選擇匯出區段</div>
-    <div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 14px">
-      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
-        <input type="checkbox" id="exp-5f-even" checked style="width:15px;height:15px;cursor:pointer">
-        <span>5F 偶數房間 <span style="font-size:11px;color:#718096;font-weight:400">（502、504、506…）</span></span>
-      </label>
-      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
-        <input type="checkbox" id="exp-5f-odd" checked style="width:15px;height:15px;cursor:pointer">
-        <span>5F 奇數房間 <span style="font-size:11px;color:#718096;font-weight:400">（501、503、507…）</span></span>
-      </label>
-      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
-        <input type="checkbox" id="exp-6f-even" checked style="width:15px;height:15px;cursor:pointer">
-        <span>6F 偶數房間 <span style="font-size:11px;color:#718096;font-weight:400">（602、604、606…）</span></span>
-      </label>
-      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
-        <input type="checkbox" id="exp-6f-odd" checked style="width:15px;height:15px;cursor:pointer">
-        <span>6F 奇數房間 <span style="font-size:11px;color:#718096;font-weight:400">（601、603、607…）</span></span>
-      </label>
+
+    <!-- ── CSV 匯出區 ── -->
+    <div style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:#2d3748;margin-bottom:8px">📊 人員名單 CSV 匯出</div>
+      <div style="font-size:11px;color:#718096;margin-bottom:10px">選擇要匯出的樓層區段（可複選），各區段資料將並排呈現於同一 CSV 檔案中。</div>
+      <div style="display:flex;flex-direction:column;gap:9px;padding:2px 0 10px">
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="exp-5f-even" checked style="width:15px;height:15px;cursor:pointer">
+          <span>5F 偶數房間 <span style="font-size:11px;color:#718096;font-weight:400">（502、504、506…）</span></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="exp-5f-odd" checked style="width:15px;height:15px;cursor:pointer">
+          <span>5F 奇數房間 <span style="font-size:11px;color:#718096;font-weight:400">（501、503、507…）</span></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="exp-6f-even" checked style="width:15px;height:15px;cursor:pointer">
+          <span>6F 偶數房間 <span style="font-size:11px;color:#718096;font-weight:400">（602、604、606…）</span></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="exp-6f-odd" checked style="width:15px;height:15px;cursor:pointer">
+          <span>6F 奇數房間 <span style="font-size:11px;color:#718096;font-weight:400">（601、603、607…）</span></span>
+        </label>
+      </div>
+      <div style="font-size:11px;color:#a0aec0;border-top:1px solid #e2e8f0;padding-top:8px;margin-bottom:10px">
+        💡 電話欄位自動以文字格式匯出，Excel 開啟不會去除開頭 0
+      </div>
+      <button class="btn btn-success" style="width:100%" onclick="exportData()">📥 匯出 CSV</button>
     </div>
-    <div style="font-size:11px;color:#a0aec0;border-top:1px solid #e2e8f0;padding-top:10px;margin-bottom:12px">
-      💡 電話欄位自動以文字格式匯出，Excel 開啟不會去除開頭 0
+
+    <!-- ── PDF 圖面匯出區 ── -->
+    <div style="background:#fffbeb;border:1px solid #fbd38d;border-radius:8px;padding:12px">
+      <div style="font-size:12px;font-weight:700;color:#744210;margin-bottom:6px">🖨️ 主畫面圖面 PDF 匯出（A4 橫向）</div>
+      <div style="font-size:11px;color:#975a16;margin-bottom:10px">擷取目前地圖畫面，匯出為 A4 橫向 PDF 檔案，可選擇樓層（多選時各層為獨立頁面）。</div>
+      <div style="display:flex;gap:20px;padding:2px 0 10px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+          <input type="checkbox" id="pdf-5f" checked style="width:15px;height:15px;cursor:pointer">
+          <span>5F 樓層圖</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+          <input type="checkbox" id="pdf-6f" checked style="width:15px;height:15px;cursor:pointer">
+          <span>6F 樓層圖</span>
+        </label>
+      </div>
+      <div style="font-size:11px;color:#a0aec0;margin-bottom:10px">💡 匯出時會自動切換樓層擷取，完成後恢復原畫面</div>
+      <button class="btn btn-warning" style="width:100%;background:#c05621;color:white" onclick="exportMapPDF()">🖨️ 匯出圖面 PDF</button>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-cancel" onclick="closeModal('export')">取消</button>
-      <button class="btn btn-success" onclick="exportData()">📥 匯出 CSV</button>
+
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-cancel" onclick="closeModal('export')">關閉</button>
     </div>
   </div>
 </div>
@@ -3177,6 +3200,128 @@ function exportData() {
 // ─── Render All ───────────────────────────────────
 function renderAll() {
   renderStats();renderPersonList();renderRoomList();renderScheduleSidebar();renderStaffStats();buildMap();
+}
+
+// ─── PDF 圖面匯出 ─────────────────────────────────────
+function _loadPDFScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error('載入失敗: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function exportMapPDF() {
+  const do5F = document.getElementById('pdf-5f').checked;
+  const do6F = document.getElementById('pdf-6f').checked;
+  if (!do5F && !do6F) { toast('請至少選擇一個樓層', 'err'); return; }
+
+  closeModal('export');
+  toast('PDF 引擎載入中，請稍候…');
+
+  try {
+    await _loadPDFScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await _loadPDFScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  } catch(e) {
+    toast('PDF 引擎載入失敗，請確認網路連線', 'err'); return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const floors = [do5F && '5F', do6F && '6F'].filter(Boolean);
+  const savedFloor = currentFloor;
+  const savedZoom  = mapZoom;
+  const mapEl   = document.getElementById('floor-plan-container');
+  const mapWrap = document.getElementById('map-wrap');
+  let firstPage = true;
+
+  for (const fl of floors) {
+    // 切換樓層
+    if (currentFloor !== fl) {
+      switchFloor(fl);
+      await new Promise(r => setTimeout(r, 700));
+    }
+    toast(`擷取 ${fl} 圖面中，請稍候…`);
+
+    // 暫時將縮放重置為 100%，讓 html2canvas 擷取完整尺寸
+    mapEl.style.transform      = 'scale(1)';
+    mapEl.style.transformOrigin = 'top left';
+    const prevOverflow = mapWrap.style.overflow;
+    const prevHeight   = mapWrap.style.height;
+    mapWrap.style.overflow = 'visible';
+    mapWrap.style.height   = 'auto';
+    await new Promise(r => setTimeout(r, 180));
+
+    let canvas;
+    try {
+      canvas = await window.html2canvas(mapEl, {
+        scale: 1.8,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width:  mapEl.scrollWidth,
+        height: mapEl.scrollHeight,
+      });
+    } catch(captureErr) {
+      toast(`${fl} 圖面擷取失敗: ` + captureErr.message, 'err');
+      canvas = null;
+    } finally {
+      // 還原縮放與 overflow
+      mapEl.style.transform = `scale(${savedZoom})`;
+      mapWrap.style.overflow = prevOverflow;
+      mapWrap.style.height   = prevHeight;
+    }
+    if (!canvas) continue;
+
+    if (!firstPage) pdf.addPage('a4', 'landscape');
+    firstPage = false;
+
+    const pageW = pdf.internal.pageSize.getWidth();   // 297mm (landscape)
+    const pageH = pdf.internal.pageSize.getHeight();  // 210mm
+    const margin   = 8;
+    const headerH  = 14;
+    const footerH  = 6;
+
+    // ── 標題列 ──
+    pdf.setFillColor(26, 54, 93);
+    pdf.rect(0, 0, pageW, headerH, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(12);
+    pdf.text(`訓練中心住宿管理系統 — ${fl} 樓層平面圖`, margin, 9.5);
+    pdf.setFontSize(8);
+    const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    pdf.text(today, pageW - margin, 9.5, { align: 'right' });
+
+    // ── 圖面置中嵌入 ──
+    const availW = pageW - margin * 2;
+    const availH = pageH - headerH - footerH - margin;
+    const ratio  = Math.min(availW / canvas.width, availH / canvas.height);
+    const drawW  = canvas.width  * ratio;
+    const drawH  = canvas.height * ratio;
+    const imgX   = margin + (availW - drawW) / 2;
+    const imgY   = headerH + (availH - drawH) / 2;
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', imgX, imgY, drawW, drawH);
+
+    // ── 頁腳 ──
+    pdf.setTextColor(180);
+    pdf.setFontSize(7);
+    pdf.text(`訓練中心住宿管理 · ${fl} 平面圖`, pageW / 2, pageH - 2, { align: 'center' });
+    pdf.setTextColor(0);
+  }
+
+  // ── 還原到原本樓層與縮放 ──
+  if (currentFloor !== savedFloor) switchFloor(savedFloor);
+  mapZoom = savedZoom;
+  document.getElementById('zoom-label').textContent = Math.round(savedZoom * 100) + '%';
+  mapEl.style.transform = `scale(${savedZoom})`;
+  if (typeof applyZoomSpacing === 'function') applyZoomSpacing();
+
+  if (firstPage) { toast('無法擷取圖面，請再試一次', 'err'); return; }
+  const fn = floors.length > 1 ? '住宿圖面_5F6F' : `住宿圖面_${floors[0]}`;
+  pdf.save(`${fn}_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast('圖面 PDF 已匯出！');
 }
 
 // ─── 修繕留言板 ──────────────────────────────────────
