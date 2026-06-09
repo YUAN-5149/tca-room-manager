@@ -3284,15 +3284,23 @@ async function exportMapPDF() {
     const headerH  = 14;
     const footerH  = 6;
 
-    // ── 標題列 ──
-    pdf.setFillColor(26, 54, 93);
-    pdf.rect(0, 0, pageW, headerH, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(12);
-    pdf.text(`訓練中心住宿管理系統 — ${fl} 樓層平面圖`, margin, 9.5);
-    pdf.setFontSize(8);
+    // ── 標題列（用原生 canvas 繪製中文，避免 jsPDF 亂碼）──
     const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    pdf.text(today, pageW - margin, 9.5, { align: 'right' });
+    const hdrC = document.createElement('canvas');
+    const HDR_PX = 80; // header height in pixels
+    hdrC.width  = 2400;
+    hdrC.height = HDR_PX;
+    const hctx = hdrC.getContext('2d');
+    hctx.fillStyle = '#1a365d';
+    hctx.fillRect(0, 0, hdrC.width, hdrC.height);
+    hctx.fillStyle = '#ffffff';
+    hctx.textBaseline = 'middle';
+    hctx.font = 'bold 36px "Microsoft JhengHei","PingFang TC","Noto Sans TC",Arial,sans-serif';
+    hctx.fillText(`訓練中心住宿管理系統 — ${fl} 樓層平面圖`, 28, HDR_PX / 2);
+    hctx.font = '26px "Microsoft JhengHei","PingFang TC","Noto Sans TC",Arial,sans-serif';
+    hctx.textAlign = 'right';
+    hctx.fillText(today, hdrC.width - 28, HDR_PX / 2);
+    pdf.addImage(hdrC.toDataURL('image/png'), 'PNG', 0, 0, pageW, headerH);
 
     // ── 圖面置中嵌入 ──
     const availW = pageW - margin * 2;
@@ -3304,11 +3312,18 @@ async function exportMapPDF() {
     const imgY   = headerH + (availH - drawH) / 2;
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', imgX, imgY, drawW, drawH);
 
-    // ── 頁腳 ──
-    pdf.setTextColor(180);
-    pdf.setFontSize(7);
-    pdf.text(`訓練中心住宿管理 · ${fl} 平面圖`, pageW / 2, pageH - 2, { align: 'center' });
-    pdf.setTextColor(0);
+    // ── 頁腳（同樣用 canvas 繪製中文）──
+    const ftC = document.createElement('canvas');
+    ftC.width = 2400; ftC.height = 32;
+    const fctx = ftC.getContext('2d');
+    fctx.fillStyle = '#f7fafc';
+    fctx.fillRect(0, 0, ftC.width, ftC.height);
+    fctx.fillStyle = '#a0aec0';
+    fctx.font = '20px "Microsoft JhengHei","PingFang TC","Noto Sans TC",Arial,sans-serif';
+    fctx.textAlign = 'center';
+    fctx.textBaseline = 'middle';
+    fctx.fillText(`訓練中心住宿管理系統 · ${fl} 平面圖`, ftC.width / 2, ftC.height / 2);
+    pdf.addImage(ftC.toDataURL('image/png'), 'PNG', 0, pageH - footerH, pageW, footerH);
   }
 
   // ── 還原到原本樓層與縮放 ──
