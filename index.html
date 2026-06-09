@@ -395,6 +395,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <button class="btn btn-light" onclick="openModal('addPerson')">＋ 新增人員</button>
     <button class="btn btn-light" onclick="openModal('addSchedule')">📅 排定住宿</button>
     <button class="btn btn-light" onclick="openModal('export')">📥 匯出</button>
+    <button class="btn btn-light" style="background:#fefcbf;color:#744210;border:1px solid #f6e05e" onclick="openModal('maintenance')">🔧 修繕留言板</button>
     <button class="btn btn-success" id="btn-publish" onclick="publishLayout()" title="將目前完整資料（人員/房間/排程/位置）發佈到雲端，所有裝置即時同步">☁️ 發佈同步</button>
   </div>
 </div>
@@ -602,6 +603,51 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       <div style="font-size:19px;font-weight:700;color:#276749;margin-bottom:12px">登記成功！</div>
       <div style="font-size:13px;color:#718096;margin-bottom:16px">您的住宿登記資料已送出，承辦人員將為您安排床位。</div>
       <div id="reg-summary" style="text-align:left;background:#f7fafc;border-radius:8px;padding:14px;font-size:14px;line-height:1.9"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 修繕回饋頁（住宿者掃 QR 進入） -->
+<div id="maint-page" style="display:none;position:fixed;inset:0;z-index:5000;background:#f0f4f8;overflow-y:auto">
+  <div style="max-width:480px;margin:0 auto;padding:18px">
+    <div style="background:linear-gradient(135deg,#744210,#c05621);color:white;border-radius:12px;padding:20px;margin-bottom:16px;text-align:center">
+      <div style="font-size:24px;margin-bottom:4px">🔧 住宿修繕回饋</div>
+      <div style="font-size:14px;opacity:.92">訓練中心住宿管理</div>
+    </div>
+    <div id="maint-form-box" style="background:white;border-radius:12px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+      <div style="font-size:13px;color:#718096;margin-bottom:14px">請描述您發現的問題，我們將盡快安排處理。</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>樓層</label>
+          <select id="mr-floor" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px">
+            <option value="5F">5F</option>
+            <option value="6F" selected>6F</option>
+            <option value="公共">公共區域</option>
+          </select>
+        </div>
+        <div class="form-group"><label>房間號碼</label><input id="mr-room" placeholder="如：602" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;box-sizing:border-box"></div>
+      </div>
+      <div class="form-group"><label>您的姓名</label><input id="mr-name" placeholder="請輸入姓名" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;box-sizing:border-box"></div>
+      <div class="form-group"><label>聯絡電話（選填）</label><input id="mr-phone" placeholder="方便聯繫的電話" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;box-sizing:border-box"></div>
+      <div class="form-group">
+        <label>問題描述 *</label>
+        <textarea id="mr-issue" rows="4" placeholder="請詳細描述需要修繕的問題及位置（例如：浴室蓮蓬頭漏水、冷氣噪音大）" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div class="form-group">
+        <label>緊急程度</label>
+        <select id="mr-priority" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px">
+          <option value="high">🔴 緊急（嚴重影響生活）</option>
+          <option value="medium" selected>🟡 一般（盡快處理）</option>
+          <option value="low">🟢 低（方便時處理）</option>
+        </select>
+      </div>
+      <button onclick="submitMaintFeedback()" style="width:100%;padding:13px;font-size:16px;font-weight:700;background:linear-gradient(135deg,#c05621,#744210);color:white;border:none;border-radius:8px;cursor:pointer;margin-top:6px">✓ 提交回饋</button>
+      <div style="font-size:11px;color:#a0aec0;text-align:center;margin-top:10px">提交後承辦人員將安排修繕，感謝您的回饋</div>
+    </div>
+    <div id="maint-success-box" style="display:none;background:white;border-radius:12px;padding:26px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+      <div style="font-size:54px;margin-bottom:8px">✅</div>
+      <div style="font-size:19px;font-weight:700;color:#276749;margin-bottom:12px">回饋已送出！</div>
+      <div style="font-size:13px;color:#718096">感謝您的回饋，我們將盡快安排修繕人員處理。</div>
     </div>
   </div>
 </div>
@@ -894,6 +940,113 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   </div>
 </div>
 
+<!-- ════ 修繕留言板 Modal ════ -->
+<div class="modal-overlay" id="modal-maintenance">
+  <div class="modal" style="width:600px;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0">
+      <h3 style="margin:0">🔧 修繕留言板</h3>
+      <button onclick="closeModal('maintenance')" title="關閉" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px;transition:.15s" onmouseover="this.style.color='#e53e3e'" onmouseout="this.style.color='#a0aec0'">✕</button>
+    </div>
+
+    <!-- QR 區塊 -->
+    <div style="background:#fffbeb;border:1px solid #fbd38d;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <img id="maint-qr-thumb" src="" alt="QR" style="width:72px;height:72px;border-radius:6px;border:1px solid #e2e8f0;background:white;cursor:pointer;flex-shrink:0" onclick="showMaintQR()" title="點擊放大">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#744210;margin-bottom:3px">住宿者回饋 QR Code</div>
+        <div style="font-size:11px;color:#975a16;margin-bottom:7px">住宿者掃描後可填寫修繕回饋表單，回饋將自動出現在下方列表</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="showMaintQR()" style="font-size:11px">🔍 放大 QR</button>
+          <button class="btn btn-sm" style="font-size:11px;background:#e9d8fd;color:#553c9a" onclick="copyMaintUrl()">🔗 複製連結</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 篩選 tab -->
+    <div id="maint-filter-tabs" style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0;flex-wrap:wrap">
+      <button class="inst-tab active" onclick="switchMaintFilter('all')">全部</button>
+      <button class="inst-tab" onclick="switchMaintFilter('pending')">🔴 待處理</button>
+      <button class="inst-tab" onclick="switchMaintFilter('in_progress')">🟡 處理中</button>
+      <button class="inst-tab" onclick="switchMaintFilter('done')">🟢 已完成</button>
+    </div>
+
+    <!-- 記錄列表 -->
+    <div id="maint-list" style="flex:1;overflow-y:auto;min-height:80px;padding-right:2px"></div>
+
+    <div class="modal-actions" style="flex-shrink:0;margin-top:10px">
+      <button class="btn btn-cancel" onclick="closeModal('maintenance')">關閉</button>
+      <button class="btn btn-warning" onclick="openAddMaintModal()" style="background:#c05621;color:white">＋ 新增修繕項目</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增/編輯修繕項目 Modal -->
+<div class="modal-overlay" id="modal-maintForm">
+  <div class="modal" style="width:430px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 id="mf-title" style="margin:0">新增修繕項目</h3>
+      <button onclick="closeModal('maintForm')" title="關閉" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px;transition:.15s" onmouseover="this.style.color='#e53e3e'" onmouseout="this.style.color='#a0aec0'">✕</button>
+    </div>
+    <input type="hidden" id="mf-id">
+    <div class="form-row">
+      <div class="form-group">
+        <label>樓層/區域</label>
+        <select id="mf-floor" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px">
+          <option value="5F">5F</option>
+          <option value="6F">6F</option>
+          <option value="公共">公共區域</option>
+          <option value="">其他</option>
+        </select>
+      </div>
+      <div class="form-group"><label>房間/位置</label><input id="mf-room" placeholder="如：602、走廊" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;box-sizing:border-box"></div>
+    </div>
+    <div class="form-group">
+      <label>問題描述 *</label>
+      <textarea id="mf-issue" rows="3" placeholder="請描述需要修繕的問題..." style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>優先級</label>
+        <select id="mf-priority" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px">
+          <option value="high">🔴 緊急</option>
+          <option value="medium">🟡 一般</option>
+          <option value="low">🟢 低</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>狀態</label>
+        <select id="mf-status" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px">
+          <option value="pending">待處理</option>
+          <option value="in_progress">處理中</option>
+          <option value="done">已完成</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>回報人</label><input id="mf-reporter" placeholder="姓名" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;box-sizing:border-box"></div>
+      <div class="form-group"><label>聯絡電話</label><input id="mf-phone" placeholder="電話（選填）" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;box-sizing:border-box"></div>
+    </div>
+    <div class="form-group"><label>備註（施工說明）</label><input id="mf-note" placeholder="供施工人員參考（選填）" style="width:100%;padding:7px 9px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;box-sizing:border-box"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" id="btn-del-maint" onclick="deleteMaintLog()" style="display:none;margin-right:auto">刪除</button>
+      <button class="btn btn-cancel" onclick="closeModal('maintForm')">取消</button>
+      <button class="btn btn-success" onclick="saveMaintRecord()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 修繕 QR 放大檢視 -->
+<div class="modal-overlay" id="maint-qr-modal" onclick="this.classList.remove('show')">
+  <div class="modal" style="width:auto;max-width:340px;text-align:center" onclick="event.stopPropagation()">
+    <h3>修繕回饋 QR Code</h3>
+    <img id="maint-qr-large" src="" alt="QR" style="width:260px;height:260px;display:block;margin:8px auto;border:1px solid #e2e8f0;border-radius:8px">
+    <div style="font-size:11px;color:#718096;margin:8px 0">住宿者掃描後可填寫修繕回饋表單</div>
+    <div class="modal-actions" style="justify-content:center">
+      <a id="maint-qr-dl" href="" download="修繕QR.png" class="btn btn-primary">📥 下載 QR</a>
+      <button class="btn btn-cancel" onclick="document.getElementById('maint-qr-modal').classList.remove('show')">關閉</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Edit mode indicator -->
@@ -1026,6 +1179,8 @@ function loadState() {
       if(!state.nextLabelId) state.nextLabelId = 10;
       if(!state.projects) state.projects = [];
       if(!state.nextProjectId) state.nextProjectId = 1;
+      if(!state.maintenanceLogs) state.maintenanceLogs = [];
+      if(!state.nextMaintId) state.nextMaintId = 1;
       return;
     }
   } catch(e){}
@@ -1110,6 +1265,7 @@ function openModal(id) {
   if(id==='projects') renderProjectList();
   if(id==='addPerson') updateProjectDatalist();
   if(id==='addLabel'){ switchAddTab('label'); const sel=document.getElementById('al-r-floor');if(sel)sel.value=currentFloor; }
+  if(id==='maintenance'){ renderMaintenanceLogs(); const t=document.getElementById('maint-qr-thumb');if(t)t.src=getMaintQrSrc(100); }
   document.getElementById('modal-'+id).classList.add('show');
 }
 function closeModal(id) { document.getElementById('modal-'+id).classList.remove('show'); }
@@ -3023,12 +3179,282 @@ function renderAll() {
   renderStats();renderPersonList();renderRoomList();renderScheduleSidebar();renderStaffStats();buildMap();
 }
 
+// ─── 修繕留言板 ──────────────────────────────────────
+let _maintFilter = 'all';
+
+function getMaintQrUrl() {
+  return location.origin + location.pathname + '?maint=1';
+}
+function getMaintQrSrc(size) {
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(getMaintQrUrl());
+}
+
+function switchMaintFilter(filter) {
+  _maintFilter = filter;
+  const filterMap = { all:0, pending:1, in_progress:2, done:3 };
+  document.querySelectorAll('#maint-filter-tabs .inst-tab').forEach((b, i) => {
+    b.classList.toggle('active', i === filterMap[filter]);
+  });
+  renderMaintenanceLogs();
+}
+
+function renderMaintenanceLogs() {
+  const all = state.maintenanceLogs || [];
+  const filtered = all.filter(l => _maintFilter === 'all' || l.status === _maintFilter)
+    .sort((a, b) => {
+      const so = { pending:0, in_progress:1, done:2 };
+      const po = { high:0, medium:1, low:2 };
+      const sd = (so[a.status]||0) - (so[b.status]||0);
+      if (sd !== 0) return sd;
+      const pd = (po[a.priority]||1) - (po[b.priority]||1);
+      if (pd !== 0) return pd;
+      return (b.createdAt||'').localeCompare(a.createdAt||'');
+    });
+
+  // Update tab counts
+  const counts = { pending:0, in_progress:0, done:0 };
+  all.forEach(l => { if(counts[l.status]!==undefined) counts[l.status]++; });
+  const tabs = document.querySelectorAll('#maint-filter-tabs .inst-tab');
+  if (tabs[0]) tabs[0].textContent = `全部（${all.length}）`;
+  if (tabs[1]) tabs[1].textContent = `🔴 待處理（${counts.pending}）`;
+  if (tabs[2]) tabs[2].textContent = `🟡 處理中（${counts.in_progress}）`;
+  if (tabs[3]) tabs[3].textContent = `🟢 已完成（${counts.done}）`;
+  // Re-apply active class
+  const filterMap = { all:0, pending:1, in_progress:2, done:3 };
+  tabs.forEach((b, i) => b.classList.toggle('active', i === filterMap[_maintFilter]));
+
+  const el = document.getElementById('maint-list');
+  if (!el) return;
+
+  if (!filtered.length) {
+    el.innerHTML = '<div style="text-align:center;color:#a0aec0;padding:22px 0;font-size:13px">目前無修繕記錄</div>';
+    return;
+  }
+
+  const prioLabel = { high:'🔴 緊急', medium:'🟡 一般', low:'🟢 低' };
+  const statusLabel = { pending:'待處理', in_progress:'處理中', done:'已完成' };
+  const statusBg = { pending:'#fff5f5', in_progress:'#fffaf0', done:'#f0fff4' };
+  const statusBorder = { pending:'#fc8181', in_progress:'#f6ad55', done:'#68d391' };
+
+  el.innerHTML = filtered.map(l => `
+    <div style="border-left:3px solid ${statusBorder[l.status]||'#cbd5e0'};background:${statusBg[l.status]||'#f7fafc'};border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:8px;border-top:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">
+            <span style="font-size:11px;background:#e2e8f0;border-radius:4px;padding:2px 6px;font-weight:600">${prioLabel[l.priority]||'🟡 一般'}</span>
+            <span style="font-size:11px;font-weight:700;color:${l.status==='done'?'#276749':l.status==='in_progress'?'#c05621':'#c53030'}">${statusLabel[l.status]||'待處理'}</span>
+            ${(l.floor||l.room)?`<span style="font-size:11px;color:#3182ce;background:#ebf8ff;padding:2px 6px;border-radius:4px">${l.floor||''} ${l.room||''}</span>`:''}
+            ${l.type==='resident'?'<span style="font-size:10px;color:#805ad5;background:#faf5ff;border-radius:4px;padding:2px 6px">住宿者回饋</span>':''}
+          </div>
+          <div style="font-size:13px;font-weight:600;color:#2d3748;margin-bottom:4px">${l.issue||''}</div>
+          <div style="font-size:11px;color:#718096">
+            👤 ${l.reporterName||l.name||'匿名'}${(l.reporterPhone||l.phone)?' ☎ '+(l.reporterPhone||l.phone):''}
+            · 📅 ${l.createdAt||''}
+            ${l.note?`<br>📝 ${l.note}`:''}
+          </div>
+        </div>
+        <button onclick="openAddMaintModal(${l.id})" title="編輯" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;color:#718096;flex-shrink:0" onmouseover="this.style.color='#3182ce'" onmouseout="this.style.color='#718096'">✏️</button>
+      </div>
+      <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
+        <button onclick="setMaintStatus(${l.id},'pending')" style="font-size:10px;padding:3px 8px;border-radius:4px;border:none;cursor:pointer;${l.status==='pending'?'background:#fc8181;color:white;font-weight:700':'background:#e2e8f0;color:#4a5568'}">待處理</button>
+        <button onclick="setMaintStatus(${l.id},'in_progress')" style="font-size:10px;padding:3px 8px;border-radius:4px;border:none;cursor:pointer;${l.status==='in_progress'?'background:#f6ad55;color:white;font-weight:700':'background:#e2e8f0;color:#4a5568'}">處理中</button>
+        <button onclick="setMaintStatus(${l.id},'done')" style="font-size:10px;padding:3px 8px;border-radius:4px;border:none;cursor:pointer;${l.status==='done'?'background:#68d391;color:white;font-weight:700':'background:#e2e8f0;color:#4a5568'}">已完成</button>
+        <button onclick="deleteMaintLogById(${l.id})" style="font-size:10px;padding:3px 8px;border-radius:4px;border:none;cursor:pointer;background:#e2e8f0;color:#c53030;margin-left:auto">✕ 刪除</button>
+      </div>
+    </div>`).join('');
+}
+
+function openAddMaintModal(id) {
+  const isEdit = id != null;
+  const log = isEdit ? (state.maintenanceLogs||[]).find(l => l.id === id) : null;
+  document.getElementById('mf-title').textContent = isEdit ? '編輯修繕項目' : '新增修繕項目';
+  document.getElementById('mf-id').value = isEdit ? id : '';
+  document.getElementById('mf-floor').value = log?.floor || '6F';
+  document.getElementById('mf-room').value = log?.room || '';
+  document.getElementById('mf-issue').value = log?.issue || '';
+  document.getElementById('mf-priority').value = log?.priority || 'medium';
+  document.getElementById('mf-status').value = log?.status || 'pending';
+  document.getElementById('mf-reporter').value = log?.reporterName || log?.name || '';
+  document.getElementById('mf-phone').value = log?.reporterPhone || log?.phone || '';
+  document.getElementById('mf-note').value = log?.note || '';
+  document.getElementById('btn-del-maint').style.display = isEdit ? 'inline-block' : 'none';
+  document.getElementById('modal-maintForm').classList.add('show');
+}
+
+function saveMaintRecord() {
+  const issue = document.getElementById('mf-issue').value.trim();
+  if (!issue) { toast('請輸入問題描述', 'err'); return; }
+  const idVal = document.getElementById('mf-id').value;
+  const today = new Date().toISOString().slice(0, 10);
+  const data = {
+    floor: document.getElementById('mf-floor').value,
+    room: document.getElementById('mf-room').value.trim(),
+    issue,
+    priority: document.getElementById('mf-priority').value,
+    status: document.getElementById('mf-status').value,
+    reporterName: document.getElementById('mf-reporter').value.trim(),
+    reporterPhone: document.getElementById('mf-phone').value.trim(),
+    note: document.getElementById('mf-note').value.trim(),
+    type: 'operator',
+  };
+  if (!state.maintenanceLogs) state.maintenanceLogs = [];
+  if (!state.nextMaintId) state.nextMaintId = 1;
+  if (idVal) {
+    const log = state.maintenanceLogs.find(l => l.id === parseInt(idVal));
+    if (log) { Object.assign(log, data); log.updatedAt = today; }
+  } else {
+    data.id = state.nextMaintId++;
+    data.createdAt = today;
+    data.updatedAt = today;
+    state.maintenanceLogs.push(data);
+    if (window.fbAddMaintLog) window.fbAddMaintLog({...data, ts: Date.now()}).catch(()=>{});
+  }
+  saveState();
+  closeModal('maintForm');
+  renderMaintenanceLogs();
+  toast(`修繕項目已${idVal ? '更新' : '新增'}`);
+}
+
+function setMaintStatus(id, status) {
+  const log = (state.maintenanceLogs||[]).find(l => l.id === id);
+  if (!log) return;
+  log.status = status;
+  log.updatedAt = new Date().toISOString().slice(0, 10);
+  if (log.regId && window.fbUpdateMaintLog) {
+    window.fbUpdateMaintLog(log.regId, { status, updatedAt: log.updatedAt }).catch(()=>{});
+  }
+  saveState();
+  renderMaintenanceLogs();
+  const labels = { pending:'待處理', in_progress:'處理中', done:'已完成' };
+  toast(`狀態已更新：${labels[status]||status}`);
+}
+
+function deleteMaintLog() {
+  const idVal = document.getElementById('mf-id').value;
+  if (!idVal) return;
+  closeModal('maintForm');
+  deleteMaintLogById(parseInt(idVal));
+}
+
+function deleteMaintLogById(id) {
+  const log = (state.maintenanceLogs||[]).find(l => l.id === id);
+  if (!log) return;
+  if (!confirm(`確定刪除此修繕記錄？\n「${log.issue}」`)) return;
+  if (log.regId && window.fbDeleteMaintLog) window.fbDeleteMaintLog(log.regId).catch(()=>{});
+  state.maintenanceLogs = state.maintenanceLogs.filter(l => l.id !== id);
+  saveState();
+  renderMaintenanceLogs();
+  toast('修繕記錄已刪除');
+}
+
+function showMaintQR() {
+  const big = getMaintQrSrc(300);
+  document.getElementById('maint-qr-large').src = big;
+  document.getElementById('maint-qr-dl').href = big;
+  document.getElementById('maint-qr-modal').classList.add('show');
+}
+
+function copyMaintUrl() {
+  const url = getMaintQrUrl();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => toast('連結已複製！')).catch(() => {
+      prompt('請手動複製以下連結：', url);
+    });
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('連結已複製！'); } catch(e) { prompt('請手動複製：', url); }
+    document.body.removeChild(ta);
+  }
+}
+
+// ── 住宿者修繕回饋頁 ────────────────────────────────
+function initMaintPage() {
+  const hdr = document.querySelector('.header'); if (hdr) hdr.style.display = 'none';
+  const main = document.querySelector('.main'); if (main) main.style.display = 'none';
+  document.querySelectorAll('.mobile-overlay,#edit-mode-bar').forEach(el => el.style.display = 'none');
+  document.getElementById('maint-page').style.display = 'block';
+}
+
+function submitMaintFeedback() {
+  const issue = document.getElementById('mr-issue').value.trim();
+  const name  = document.getElementById('mr-name').value.trim();
+  if (!issue) { alert('請描述修繕問題'); return; }
+  if (!window.fbAddMaintLog) { alert('雲端連線中，請稍候再試…'); return; }
+  const data = {
+    floor: document.getElementById('mr-floor').value,
+    room: document.getElementById('mr-room').value.trim(),
+    issue,
+    priority: document.getElementById('mr-priority').value,
+    status: 'pending',
+    name: name || '住宿者',
+    phone: document.getElementById('mr-phone').value.trim(),
+    type: 'resident',
+    ts: Date.now(),
+    createdAt: new Date().toISOString().slice(0, 10),
+  };
+  const btn = document.querySelector('#maint-form-box button');
+  if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
+  window.fbAddMaintLog(data).then(() => {
+    document.getElementById('maint-form-box').style.display = 'none';
+    document.getElementById('maint-success-box').style.display = 'block';
+  }).catch(e => {
+    alert('提交失敗：' + (e.message || e));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ 提交回饋'; }
+  });
+}
+
+// ── 管理端：監聽修繕回饋，自動併入留言板 ──────────
+function initMaintWatch() {
+  if (!window.fbWatchMaintLogs) { setTimeout(initMaintWatch, 800); return; }
+  window.fbWatchMaintLogs((logs) => {
+    if (!state.maintenanceLogs) state.maintenanceLogs = [];
+    if (!state.nextMaintId) state.nextMaintId = 1;
+    let added = 0;
+    logs.forEach(r => {
+      if (!state.maintenanceLogs.some(l => l.regId === r._id)) {
+        state.maintenanceLogs.push({
+          id: state.nextMaintId++,
+          floor: r.floor || '',
+          room: r.room || '',
+          issue: r.issue || '',
+          priority: r.priority || 'medium',
+          status: r.status || 'pending',
+          reporterName: r.name || '住宿者',
+          reporterPhone: r.phone || '',
+          note: '',
+          type: 'resident',
+          createdAt: r.createdAt || new Date().toISOString().slice(0, 10),
+          updatedAt: r.createdAt || new Date().toISOString().slice(0, 10),
+          regId: r._id,
+        });
+        added++;
+      } else {
+        // 同步狀態更新
+        const existing = state.maintenanceLogs.find(l => l.regId === r._id);
+        if (existing && r.status && r.status !== existing.status) {
+          existing.status = r.status;
+        }
+      }
+    });
+    if (added > 0) {
+      saveState();
+      toast(`📥 收到 ${added} 筆新修繕回饋`);
+    }
+  });
+}
+
 // ─── Init ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   // 登記模式：住宿者掃 QR 進入，只顯示自助登記表單，不載入管理介面
   const params = new URLSearchParams(location.search);
   if (params.has('reg')) {
     initRegisterMode(params.get('reg'), params.get('pn') || '');
+    return;
+  }
+  // 修繕回饋模式：住宿者掃修繕 QR 進入
+  if (params.has('maint')) {
+    initMaintPage();
     return;
   }
   loadState(); restoreCustomRoomsToMap(); loadImgCache(); autoCacheFloorImgs();
@@ -3041,6 +3467,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPanelResizers();   // 啟用面板拖移調整寬度
   updateProjectDatalist();   // 初始化班期下拉清單
   initRegistrationWatch();   // 監聽自助登記，自動併入人員
+  initMaintWatch();          // 監聽修繕回饋，自動併入留言板
 });
 </script>
 
@@ -3081,6 +3508,15 @@ try {
   window.fbWatchRegistrations = (cb) => onSnapshot(regCol, (snap) => {
     const arr = []; snap.forEach(d => arr.push({ _id: d.id, ...d.data() })); cb(arr);
   }, (err) => console.warn('[reg-sync] 監聽錯誤:', err));
+
+  // ── 修繕留言板集合（住宿者掃修繕 QR 提交） ──
+  const maintCol = collection(fdb, 'tca_maint_poll');
+  window.fbAddMaintLog    = (data)          => addDoc(maintCol, data);
+  window.fbDeleteMaintLog = (docId)         => deleteDoc(doc(fdb, 'tca_maint_poll', docId));
+  window.fbUpdateMaintLog = (docId, data)   => setDoc(doc(fdb, 'tca_maint_poll', docId), data, { merge: true });
+  window.fbWatchMaintLogs = (cb) => onSnapshot(maintCol, (snap) => {
+    const arr = []; snap.forEach(d => arr.push({ _id: d.id, ...d.data() })); cb(arr);
+  }, (err) => console.warn('[maint-sync] 監聽錯誤:', err));
 
   // 通知主程式雲端已就緒
   if (typeof window.onLayoutCloudReady === 'function') window.onLayoutCloudReady();
