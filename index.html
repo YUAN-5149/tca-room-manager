@@ -484,9 +484,10 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   <div class="map-area">
     <!-- Floor tabs -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="floor-tabs">
+      <div class="floor-tabs" style="align-items:center">
         <button class="floor-tab active" id="floortab-5F" onclick="switchFloor('5F')">5F</button>
         <button class="floor-tab" id="floortab-6F" onclick="switchFloor('6F')">6F</button>
+        <button class="btn btn-sm" style="background:#2d3748;color:white;white-space:nowrap;margin-left:6px" onclick="openAllFloorsView()" title="以立體堆疊方式檢視 5F 與 6F 全圖面">🏢 全樓層檢視</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="legend">
@@ -656,6 +657,18 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       <div style="font-size:13px;color:#718096">感謝您的回饋，我們將盡快安排修繕人員處理。</div>
     </div>
   </div>
+</div>
+
+<!-- 全樓層立體堆疊檢視 -->
+<div id="allfloors-view" style="display:none;position:fixed;inset:0;z-index:4500;background:#e2e5e9;overflow:auto">
+  <div style="position:sticky;top:0;z-index:10;background:rgba(45,55,72,.96);color:white;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:17px;font-weight:700">🏢 全樓層檢視</span>
+      <span style="font-size:12px;opacity:.75">點擊任一樓層圖面即可進入該樓層</span>
+    </div>
+    <button onclick="closeAllFloorsView()" style="background:#e53e3e;color:white;border:none;border-radius:6px;padding:6px 16px;font-size:14px;font-weight:700;cursor:pointer">✕ 關閉</button>
+  </div>
+  <div id="allfloors-stage" style="position:relative;max-width:1100px;margin:0 auto;padding:10px 20px 60px"></div>
 </div>
 
 <!-- QR 放大檢視 -->
@@ -3253,6 +3266,95 @@ function exportData() {
 // ─── Render All ───────────────────────────────────
 function renderAll() {
   renderStats();renderPersonList();renderRoomList();renderScheduleSidebar();renderStaffStats();buildMap();
+}
+
+// ─── 全樓層立體堆疊檢視 ────────────────────────────────
+function openAllFloorsView() {
+  buildAllFloorsView();
+  document.getElementById('allfloors-view').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeAllFloorsView() {
+  document.getElementById('allfloors-view').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function _floorStats(fl) {
+  const rooms = Object.values(state.floors[fl]?.rooms || {});
+  const totalBeds = rooms.reduce((s, r) => s + r.beds.length, 0);
+  const occBeds   = rooms.reduce((s, r) => s + r.beds.filter(b => b !== null).length, 0);
+  const fullCnt   = rooms.filter(r => getRoomStatus(r) === 'full').length;
+  const emptyCnt  = rooms.filter(r => getRoomStatus(r) === 'empty').length;
+  return { rooms: rooms.length, totalBeds, occBeds, fullCnt, emptyCnt };
+}
+
+function buildAllFloorsView() {
+  const stage = document.getElementById('allfloors-stage');
+  stage.innerHTML = '';
+  const ROOM_BG = {
+    empty:  ['rgba(198,246,213,.9)', '#38a169'],
+    partial:['rgba(254,252,191,.92)','#d69e2e'],
+    full:   ['rgba(254,215,215,.92)','#e53e3e'],
+  };
+
+  ['6F', '5F'].forEach((fl, idx) => {
+    const st = _floorStats(fl);
+
+    const section = document.createElement('div');
+    // 固定高度讓上下樓層緊密堆疊（圖層視覺可溢出至下一區塊）
+    section.style.cssText = `position:relative;max-width:900px;margin:0 auto;height:${idx === 0 ? '400px' : '600px'};${idx === 0 ? 'margin-top:-40px' : 'margin-top:10px'}`;
+
+    // ── 樓層資訊標籤（不傾斜，固定在左上）──
+    const tag = document.createElement('div');
+    tag.style.cssText = 'position:absolute;left:0;top:34%;z-index:5;background:rgba(45,55,72,.92);color:white;border-radius:10px;padding:10px 16px;box-shadow:0 3px 10px rgba(0,0,0,.25);pointer-events:none';
+    tag.innerHTML = `<div style="font-size:26px;font-weight:800;line-height:1">${fl}</div>
+      <div style="font-size:11px;margin-top:6px;opacity:.9;line-height:1.7">🏠 ${st.rooms} 間房<br>🛏️ 入住 ${st.occBeds}/${st.totalBeds} 床<br>🔴 客滿 ${st.fullCnt} · 🟢 空房 ${st.emptyCnt}</div>`;
+    section.appendChild(tag);
+
+    // ── 軸測傾斜圖層 ──
+    const iso = document.createElement('div');
+    iso.style.cssText = 'width:min(620px,88vw);margin:0 auto;transform:rotateX(54deg) rotateZ(-42deg) scale(.85);transform-origin:center center;cursor:pointer;transition:filter .2s';
+    iso.title = `點擊進入 ${fl}`;
+    iso.onmouseover = () => { iso.style.filter = 'brightness(1.05) drop-shadow(0 10px 24px rgba(49,130,206,.45))'; };
+    iso.onmouseout  = () => { iso.style.filter = ''; };
+    iso.onclick = () => { closeAllFloorsView(); if (currentFloor !== fl) switchFloor(fl); toast(`已切換至 ${fl}`); };
+
+    const plan = document.createElement('div');
+    plan.style.cssText = 'position:relative;width:100%;background:white;border:2px solid #a0aec0;border-radius:4px;box-shadow:18px 18px 0 rgba(45,55,72,.12), 0 4px 20px rgba(0,0,0,.18)';
+
+    const img = document.createElement('img');
+    img.src = imgCache[fl] || (fl.toLowerCase() + '.jpg');
+    img.style.cssText = 'display:block;width:100%;height:auto;opacity:.94;pointer-events:none';
+    img.draggable = false;
+    plan.appendChild(img);
+
+    // 區域標籤（倉庫/洗衣間等）
+    (state.labels?.[fl] || []).forEach(lbl => {
+      const el = document.createElement('div');
+      el.style.cssText = `position:absolute;left:${lbl.x}%;top:${lbl.y}%;width:${lbl.w}%;height:${lbl.h}%;background:${lbl.fill};border:1.5px solid ${lbl.border};color:${lbl.color || '#2d3748'};border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;white-space:pre-line;text-align:center;overflow:hidden;pointer-events:none${lbl.r ? ';transform:rotate(' + lbl.r + 'deg)' : ''}`;
+      el.textContent = lbl.text;
+      plan.appendChild(el);
+    });
+
+    // 房間色塊
+    const rooms = state.floors[fl]?.rooms || {};
+    Object.keys(FLOOR_ROOMS[fl] || {}).forEach(roomId => {
+      const room = rooms[roomId]; if (!room) return;
+      const pos = getRoomPos(roomId, fl); if (!pos) return;
+      const status = getRoomStatus(room);
+      let [bg, border] = ROOM_BG[status] || ROOM_BG.empty;
+      if (getRoomGenderStatus(room) === 'female') { bg = 'rgba(255,192,203,.9)'; border = '#d53f8c'; }
+      const occ = room.beds.filter(b => b !== null).length;
+      const el = document.createElement('div');
+      el.style.cssText = `position:absolute;left:${pos.x}%;top:${pos.y}%;width:${pos.w}%;height:${pos.h}%;background:${bg};border:1.5px solid ${border};border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#2d3748;overflow:hidden;pointer-events:none${pos.r ? ';transform:rotate(' + pos.r + 'deg)' : ''}`;
+      el.innerHTML = `<div>${room.number}</div><div style="font-size:8px;font-weight:600;color:#4a5568">${occ}/${room.beds.length}</div>`;
+      plan.appendChild(el);
+    });
+
+    iso.appendChild(plan);
+    section.appendChild(iso);
+    stage.appendChild(section);
+  });
 }
 
 // ─── PDF 圖面匯出 ─────────────────────────────────────
