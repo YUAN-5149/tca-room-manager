@@ -3376,7 +3376,9 @@ function buildAllFloorsView() {
   [['5F', 0], ['6F', GAP]].forEach(([fl, z]) => {
     const plane = document.createElement('div');
     plane.dataset.floor = fl;
-    plane.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${z}px);transform-style:preserve-3d;background:rgba(255,255,255,.96);border:2px solid #a0aec0;border-radius:4px;box-shadow:0 0 26px rgba(0,0,0,.15);cursor:pointer;transition:filter .2s`;
+    // 6F 樓板改為高透明，可透視看到下方 5F 全貌
+    const plateBg = fl === '6F' ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.96)';
+    plane.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${z}px);transform-style:preserve-3d;background:${plateBg};border:2px solid #a0aec0;border-radius:4px;box-shadow:0 0 26px rgba(0,0,0,.15);cursor:pointer;transition:filter .2s`;
     plane.title = `點擊進入 ${fl}`;
     plane.onmouseover = () => { plane.style.filter = 'brightness(1.06)'; plane.style.outline = '3px solid #3182ce'; };
     plane.onmouseout  = () => { plane.style.filter = ''; plane.style.outline = ''; };
@@ -3384,7 +3386,7 @@ function buildAllFloorsView() {
 
     const img = document.createElement('img');
     img.src = imgCache[fl] || (fl.toLowerCase() + '.jpg');
-    img.style.cssText = 'display:block;width:100%;height:auto;opacity:.94;pointer-events:none';
+    img.style.cssText = `display:block;width:100%;height:auto;opacity:${fl === '6F' ? '.42' : '.94'};pointer-events:none`;
     img.draggable = false;
     img.onload = () => {
       // 依底圖實際比例調整平面高度，讓 % 定位的房間對齊
