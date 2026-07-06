@@ -3437,14 +3437,14 @@ function buildAllFloorsView() {
     // 位置：兩側各一座（條狀）+ 中間一座
     if (fl === '5F') {
       [
-        [57, 4, 11, 8],    // 上側樓梯（條狀，左翼頂端）
-        [81, 68, 6, 10],   // 右側樓梯（條狀，右翼末端）
-        [46, 42, 8, 11],   // 中間樓梯（僅此一座）
-      ].forEach(([x, y, w, h]) => {
+        [37.5, 7.5, 9, 7, 18],     // 上側樓梯（左翼頂端，隨翼樓角度傾斜）
+        [89.8, 65.8, 7, 7.5, 0],   // 右側樓梯（右翼末端）
+        [46.2, 41.5, 7.6, 7, 0],   // 中間樓梯（僅此一座）
+      ].forEach(([x, y, w, h, r]) => {
         addBox(plane, x, y, w, h, GAP * 2,
           'background:repeating-linear-gradient(180deg,rgba(237,137,54,.5) 0 8px,rgba(237,137,54,.2) 8px 16px);border:1px solid rgba(221,107,32,.6)',
           'background:rgba(237,137,54,.8);border:1.5px solid #c05621;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;text-shadow:0 1px 2px rgba(0,0,0,.3)',
-          '樓梯');
+          '樓梯', r);
       });
     }
     scene.appendChild(plane);
