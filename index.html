@@ -3376,9 +3376,10 @@ function buildAllFloorsView() {
   [['5F', 0], ['6F', GAP]].forEach(([fl, z]) => {
     const plane = document.createElement('div');
     plane.dataset.floor = fl;
-    // 6F 樓板改為高透明，可透視看到下方 5F 全貌
-    const plateBg = fl === '6F' ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.96)';
-    plane.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${z}px);transform-style:preserve-3d;background:${plateBg};border:2px solid #a0aec0;border-radius:4px;box-shadow:0 0 26px rgba(0,0,0,.15);cursor:pointer;transition:filter .2s`;
+    // 6F 樓板改為高透明，可透視看到下方 5F 全貌（無陰影避免霧感疊加）
+    const plateBg = fl === '6F' ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.96)';
+    const plateShadow = fl === '6F' ? '' : ';box-shadow:0 0 26px rgba(0,0,0,.15)';
+    plane.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${z}px);transform-style:preserve-3d;background:${plateBg};border:2px solid #a0aec0;border-radius:4px${plateShadow};cursor:pointer;transition:filter .2s`;
     plane.title = `點擊進入 ${fl}`;
     plane.onmouseover = () => { plane.style.filter = 'brightness(1.06)'; plane.style.outline = '3px solid #3182ce'; };
     plane.onmouseout  = () => { plane.style.filter = ''; plane.style.outline = ''; };
@@ -3386,7 +3387,7 @@ function buildAllFloorsView() {
 
     const img = document.createElement('img');
     img.src = imgCache[fl] || (fl.toLowerCase() + '.jpg');
-    img.style.cssText = `display:block;width:100%;height:auto;opacity:${fl === '6F' ? '.42' : '.94'};pointer-events:none`;
+    img.style.cssText = `display:block;width:100%;height:auto;opacity:${fl === '6F' ? '.25' : '.94'};pointer-events:none`;
     img.draggable = false;
     img.onload = () => {
       // 依底圖實際比例調整平面高度，讓 % 定位的房間對齊
@@ -3451,7 +3452,7 @@ function buildAllFloorsView() {
 
   // ── 透明屋頂板（蓋在 6F 牆頂，完成建物量體）──
   roofEl = document.createElement('div');
-  roofEl.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${GAP * 2}px);background:rgba(226,232,240,.28);border:1.5px solid rgba(74,85,104,.45);border-radius:4px;pointer-events:none`;
+  roofEl.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${GAP * 2}px);background:transparent;border:1.5px solid rgba(74,85,104,.45);border-radius:4px;pointer-events:none`;
   scene.appendChild(roofEl);
 
   // ── 樓層資訊標籤（平面 HTML，固定於畫面左側）──
