@@ -1238,7 +1238,16 @@ function loadState() {
    {name:'林淑芬',dept:'行政處',title:'專員',gender:'F'}
   ].forEach(d=>{ d.id=state.nextPersonId++;d.assignedFloor=null;d.assignedRoom=null;d.assignedBed=null;d.phone='';d.note='';state.persons.push(d); });
 }
-function saveState() { localStorage.setItem('tca_v5', JSON.stringify(state)); }
+function saveState() {
+  if (typeof _dirtySinceSync !== 'undefined') _dirtySinceSync = true;   // 標記有未發佈的本機變更
+  try {
+    localStorage.setItem('tca_v5', JSON.stringify(state));
+  } catch (e) {
+    // 儲存空間爆滿（QuotaExceededError）：資料仍在記憶體，但重新整理會遺失
+    console.error('[saveState] 儲存失敗:', e);
+    toast('⚠️ 本機儲存空間已滿，資料可能無法保存！請先「發佈同步」備份到雲端', 'err');
+  }
+}
 
 // 頁面重載後，將有自訂位置的房間恢復到 FLOOR_ROOMS，確保地圖上能正確顯示
 function restoreCustomRoomsToMap() {
@@ -1282,8 +1291,8 @@ function autoCacheFloorImgs() {
         reader.readAsDataURL(blob);
       }))
       .then(dataUrl => {
-        localStorage.setItem(key, dataUrl);
         imgCache[floor] = dataUrl;
+        try { localStorage.setItem(key, dataUrl); } catch (e) { console.warn('[imgCache] 底圖快取失敗（空間不足）:', e); }
         buildMap(); // rebuild with image now cached
         toast(`${floor} 底圖已永久固定到本機 ✓`);
       })
@@ -1295,6 +1304,13 @@ function autoCacheFloorImgs() {
 const COLORS = ['#3182ce','#38a169','#d69e2e','#e53e3e','#805ad5','#dd6b20','#319795','#d53f8c'];
 const avColor = id => COLORS[id % COLORS.length];
 const avLetter = name => name ? name[0] : '?';
+
+// HTML 跳脫：所有使用者輸入插入 innerHTML 前必須經過此函式，防止儲存型 XSS
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
 
 function toast(msg, type='success') {
   const t=document.getElementById('toast');
@@ -1424,8 +1440,8 @@ function renderStaffStats() {
     <div class="section-title" style="border-left-color:#805ad5">房間清單（${rooms.length} 間）</div>
     <div style="font-size:11px">
       ${rooms.map(r=>{const o=r.beds.filter(b=>b!==null).length;const s=getRoomStatus(r);
-        return`<div class="room-item-sb" onclick="switchFloor('6F');selectRoom('${r.id}')" style="cursor:pointer">
-          <div><div style="font-weight:600">${r.number}</div><div style="color:#718096;font-size:10px">${r.type}·${r.beds.length}床</div></div>
+        return`<div class="room-item-sb" onclick="switchFloor('6F');selectRoom('${esc(r.id)}')" style="cursor:pointer">
+          <div><div style="font-weight:600">${esc(r.number)}</div><div style="color:#718096;font-size:10px">${esc(r.type)}·${r.beds.length}床</div></div>
           <div style="text-align:right"><div class="room-badge badge-${s}">${s==='empty'?'空房':s==='full'?'客滿':'部分'}</div>
           <div style="font-size:10px;color:#718096;margin-top:1px">${o}/${r.beds.length}</div></div>
         </div>`;}).join('')}
@@ -1434,10 +1450,10 @@ function renderStaffStats() {
     <div style="font-size:11px">
       ${occupants.length===0?'<div class="empty-state">尚無同仁入住</div>':
         occupants.map(o=>`<div class="sched-row">
-          <div class="person-avatar" style="width:24px;height:24px;background:${avColor(o.p?o.p.id:0)}">${o.p?avLetter(o.p.name):'?'}</div>
-          <div style="flex:1"><div style="font-weight:500">${o.p?o.p.name:'(已刪除)'}${o.p&&o.p.gender==='F'?' ♀':''}</div>
-          <div style="color:#718096;font-size:10px">房間${o.room}·床${o.bed}${o.p&&o.p.dept?' · '+o.p.dept:''}</div>
-          ${o.p&&o.p.classPeriod?`<div style="color:#3182ce;font-size:10px">${o.p.classPeriod}</div>`:''}</div>
+          <div class="person-avatar" style="width:24px;height:24px;background:${avColor(o.p?o.p.id:0)}">${o.p?esc(avLetter(o.p.name)):'?'}</div>
+          <div style="flex:1"><div style="font-weight:500">${o.p?esc(o.p.name):'(已刪除)'}${o.p&&o.p.gender==='F'?' ♀':''}</div>
+          <div style="color:#718096;font-size:10px">房間${esc(o.room)}·床${o.bed}${o.p&&o.p.dept?' · '+esc(o.p.dept):''}</div>
+          ${o.p&&o.p.classPeriod?`<div style="color:#3182ce;font-size:10px">${esc(o.p.classPeriod)}</div>`:''}</div>
         </div>`).join('')}
     </div>`;
 }
@@ -1453,7 +1469,7 @@ function updatePersonProjectFilter() {
   sel.innerHTML = '<option value="">📋 全部人員（不分專案）</option>'
     + names.map(n => {
         const cnt = state.persons.filter(x => x.classPeriod === n).length;
-        return `<option value="${n.replace(/"/g,'&quot;')}">📁 ${n}（${cnt} 人）</option>`;
+        return `<option value="${esc(n)}">📁 ${esc(n)}（${cnt} 人）</option>`;
       }).join('')
     + `<option value="__none__">❔ 未歸類專案（${state.persons.filter(x=>!x.classPeriod).length} 人）</option>`;
   // 保留先前選擇（若該專案仍存在）
@@ -1480,7 +1496,7 @@ function renderPersonList() {
       infoEl.style.display='block';
       infoEl.innerHTML=`<div style="background:#ebf8ff;border:1px solid #90cdf4;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:11px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
-          <div style="font-weight:700;color:#2c5282;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${projFilter}</div>
+          <div style="font-weight:700;color:#2c5282;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${esc(projFilter)}</div>
           ${proj?`<button class="btn btn-primary btn-sm" style="flex-shrink:0;font-size:10px" onclick="openProjectForm(${proj.id})" title="編輯此專案資料">✏️ 編輯專案</button>`:''}
         </div>
         <div style="color:#2b6cb0;margin-top:3px">👥 ${members.length} 人 · 🛏️ 已入住 ${housed} / 未分配 ${members.length-housed}${dates?' · '+dates:''}</div>
@@ -1495,11 +1511,11 @@ function renderPersonList() {
     return`<div class="person-item" draggable="true" title="點擊編輯，拖曳分配房間"
       onclick="openEditPerson(${p.id})"
       ondragstart="onPersonDragStart(event,${p.id})" ondragend="onPersonDragEnd(event)">
-      <div class="person-avatar" style="background:${avColor(p.id)}">${avLetter(p.name)}</div>
+      <div class="person-avatar" style="background:${avColor(p.id)}">${esc(avLetter(p.name))}</div>
       <div class="person-info">
-        <div class="person-name">${p.name}${p.gender==='F'?'<span style="font-size:9px;margin-left:4px;color:#d53f8c">♀</span>':''}</div>
-        <div class="person-dept">${p.dept||''}${p.title?' · '+p.title:''}</div>
-        ${p.classPeriod?`<div style="font-size:10px;color:#3182ce;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.classPeriod}</div>`:''}
+        <div class="person-name">${esc(p.name)}${p.gender==='F'?'<span style="font-size:9px;margin-left:4px;color:#d53f8c">♀</span>':''}</div>
+        <div class="person-dept">${esc(p.dept)}${p.title?' · '+esc(p.title):''}</div>
+        ${p.classPeriod?`<div style="font-size:10px;color:#3182ce;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.classPeriod)}</div>`:''}
         <div style="font-size:10px;color:${p.assignedRoom?'#38a169':'#a0aec0'}">${assigned}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
@@ -1581,7 +1597,7 @@ function removePersonFromEdit() {
 function updateProjectDatalist() {
   const dl = document.getElementById('project-datalist');
   if (!dl) return;
-  dl.innerHTML = (state.projects || []).map(p => `<option value="${(p.name||'').replace(/"/g,'&quot;')}">`).join('');
+  dl.innerHTML = (state.projects || []).map(p => `<option value="${esc(p.name)}">`).join('');
 }
 
 function renderProjectList() {
@@ -1594,17 +1610,17 @@ function renderProjectList() {
     const cnt = state.persons.filter(x => x.classPeriod === p.name).length;
     const dates = (p.startDate || p.endDate) ? `${p.startDate||'?'} ~ ${p.endDate||'?'}` : '';
     const insts = p.instructors || (p.instructor ? [p.instructor] : []);
-    const instStr = insts.filter(x=>x.name||x.title).map(x=>`${x.name||'—'}${x.title?'（'+x.title+'）':''}`).join('、') || '—';
+    const instStr = insts.filter(x=>x.name||x.title).map(x=>`${esc(x.name)||'—'}${x.title?'（'+esc(x.title)+'）':''}`).join('、') || '—';
     const qrThumb = projectQrSrc(p, 100);
     return `<div onclick="openProjectForm(${p.id})" style="cursor:pointer;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;margin-bottom:7px;background:#f7fafc;display:flex;gap:10px;align-items:flex-start">
       <div style="flex:1;min-width:0">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
-          <div style="font-weight:700;color:#2b6cb0">${p.name}</div>
+          <div style="font-weight:700;color:#2b6cb0">${esc(p.name)}</div>
           <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeProject(${p.id})">✕</button>
         </div>
-        ${dates?`<div style="font-size:10px;color:#718096;margin-top:2px">📅 ${dates}</div>`:''}
+        ${dates?`<div style="font-size:10px;color:#718096;margin-top:2px">📅 ${esc(dates)}</div>`:''}
         <div style="font-size:11px;color:#4a5568;margin-top:4px">👨‍🏫 教官（${insts.filter(x=>x.name||x.title).length}）：${instStr}</div>
-        <div style="font-size:11px;color:#4a5568;margin-top:2px">🎓 班代：${p.classRep?.name||'—'}${p.classRep?.phone?' ☎ '+p.classRep.phone:''}${p.classRep?.room?' · '+p.classRep.room:''}</div>
+        <div style="font-size:11px;color:#4a5568;margin-top:2px">🎓 班代：${esc(p.classRep?.name)||'—'}${p.classRep?.phone?' ☎ '+esc(p.classRep.phone):''}${p.classRep?.room?' · '+esc(p.classRep.room):''}</div>
         <div style="font-size:10px;color:#805ad5;margin-top:3px">目前登錄 ${cnt} 人${p.count?` / 學員 ${p.count} 人`:''}</div>
       </div>
       <div style="flex-shrink:0;text-align:center" onclick="event.stopPropagation();showQRLarge(${p.id})" title="點擊放大／下載｜住宿者掃碼自助登記">
@@ -1780,13 +1796,13 @@ function submitRegistration() {
     document.getElementById('reg-form-box').style.display = 'none';
     document.getElementById('reg-success-box').style.display = 'block';
     document.getElementById('reg-summary').innerHTML =
-      `<div><b>姓名：</b>${name}</div>
-       <div><b>受訓班期：</b>${_regProjectName || '—'}</div>
-       <div><b>部門：</b>${data.dept || '—'}</div>
-       <div><b>職稱：</b>${data.title || '—'}</div>
+      `<div><b>姓名：</b>${esc(name)}</div>
+       <div><b>受訓班期：</b>${esc(_regProjectName) || '—'}</div>
+       <div><b>部門：</b>${esc(data.dept) || '—'}</div>
+       <div><b>職稱：</b>${esc(data.title) || '—'}</div>
        <div><b>性別：</b>${data.gender === 'F' ? '女' : '男'}</div>
-       <div><b>電話：</b>${phone}</div>
-       ${data.note ? `<div><b>備註：</b>${data.note}</div>` : ''}`;
+       <div><b>電話：</b>${esc(phone)}</div>
+       ${data.note ? `<div><b>備註：</b>${esc(data.note)}</div>` : ''}`;
   }).catch(e => {
     alert('提交失敗：' + (e.message || e));
     if (btn) { btn.disabled = false; btn.textContent = '✓ 提交登記'; }
@@ -1831,8 +1847,8 @@ function renderRoomList() {
     const badgeLabel = isFemale
       ? (s==='empty'?'空房(♀)':s==='full'?'客滿(♀)':'部分(♀)')
       : (s==='empty'?'空房':s==='full'?'客滿':'部分');
-    return`<div class="room-item-sb" onclick="selectRoom('${r.id}')">
-      <div><div style="font-weight:600">${r.number}</div><div style="color:#718096;font-size:10px">${r.type}·${r.beds.length}床</div></div>
+    return`<div class="room-item-sb" onclick="selectRoom('${esc(r.id)}')">
+      <div><div style="font-weight:600">${esc(r.number)}</div><div style="color:#718096;font-size:10px">${esc(r.type)}·${r.beds.length}床</div></div>
       <div style="text-align:right">
         <div class="room-badge badge-${s}" style="${badgeStyle}">${badgeLabel}</div>
         <div style="font-size:10px;color:#718096;margin-top:1px">${o}/${r.beds.length}</div>
@@ -1876,7 +1892,7 @@ function removeRoomOccupants() {
 
 // ─── Schedule ─────────────────────────────────────
 function prepScheduleModal() {
-  document.getElementById('s-person').innerHTML=state.persons.map(p=>`<option value="${p.id}">${p.name}(${p.dept||'—'})</option>`).join('');
+  document.getElementById('s-person').innerHTML=state.persons.map(p=>`<option value="${p.id}">${esc(p.name)}(${esc(p.dept)||'—'})</option>`).join('');
   document.getElementById('s-floor').value=currentFloor;
   updateSRoomSelect();
   const today=new Date().toISOString().slice(0,10);
@@ -1889,7 +1905,7 @@ function updateSRoomSelect() {
   const rooms=Object.values(state.floors[f]?.rooms||{}).sort((a,b)=>a.number.localeCompare(b.number,undefined,{numeric:true}));
   document.getElementById('s-room').innerHTML=rooms.map(r=>{
     const av=r.beds.filter(b=>b===null).length;
-    return`<option value="${r.id}" ${av===0?'disabled':''}>房間${r.number}(${r.type})剩${av}床</option>`;
+    return`<option value="${esc(r.id)}" ${av===0?'disabled':''}>房間${esc(r.number)}(${esc(r.type)})剩${av}床</option>`;
   }).join('');
   if(f===currentFloor && selectedRoom) document.getElementById('s-room').value=selectedRoom;
   updateBedSelect();
@@ -1940,10 +1956,10 @@ function renderScheduleSidebar() {
     return`<div class="sched-row">
       <div class="sched-dot" style="background:${avColor(s.personId||0)}"></div>
       <div style="flex:1">
-        <div style="font-weight:500">${p?p.name:'(已刪除)'}</div>
-        <div style="color:#718096;font-size:10px">房間${s.roomId}·床${(s.bedIdx||0)+1}</div>
-        <div style="color:#a0aec0;font-size:10px">${s.checkIn}~${s.checkOut}</div>
-        ${s.note?`<div style="color:#a0aec0;font-size:10px">${s.note}</div>`:''}
+        <div style="font-weight:500">${p?esc(p.name):'(已刪除)'}</div>
+        <div style="color:#718096;font-size:10px">房間${esc(s.roomId)}·床${(s.bedIdx||0)+1}</div>
+        <div style="color:#a0aec0;font-size:10px">${esc(s.checkIn)}~${esc(s.checkOut)}</div>
+        ${s.note?`<div style="color:#a0aec0;font-size:10px">${esc(s.note)}</div>`:''}
       </div>
       <button class="btn btn-danger btn-sm" onclick="removeSchedule(${s.id})">✕</button>
     </div>`;
@@ -2926,9 +2942,30 @@ function handleImgUpload(e) {
   const file = e.target.files[0]; if(!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    imgCache[currentFloor] = ev.target.result;
-    localStorage.setItem(FLOOR_IMG_KEY[currentFloor], ev.target.result);
-    buildMap(); toast(`${currentFloor} 底圖已更新`);
+    // 自動壓縮：限制最大寬度並轉 JPEG，避免 base64 撐爆 localStorage（約 5MB 上限）
+    const im = new Image();
+    im.onload = () => {
+      const MAXW = 1800;
+      const scale = Math.min(1, MAXW / im.width);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(im.width * scale);
+      cv.height = Math.round(im.height * scale);
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(im, 0, 0, cv.width, cv.height);
+      const dataUrl = cv.toDataURL('image/jpeg', 0.82);
+      imgCache[currentFloor] = dataUrl;
+      try {
+        localStorage.setItem(FLOOR_IMG_KEY[currentFloor], dataUrl);
+        buildMap(); toast(`${currentFloor} 底圖已更新（已自動壓縮）`);
+      } catch (err) {
+        console.error('[imgUpload] 儲存失敗:', err);
+        buildMap();
+        toast('⚠️ 底圖過大無法保存，重新整理後將遺失，請改用較小的圖檔', 'err');
+      }
+    };
+    im.onerror = () => toast('圖檔讀取失敗，請確認檔案格式', 'err');
+    im.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -3014,6 +3051,8 @@ function initPanelResizers() {
 // ─── 雲端佈局同步 (Firebase) ───────────────────────
 let _lastPublishTs = 0;          // 避免自己發佈的回音造成跳動
 let _layoutCloudReady = false;   // Firebase 是否就緒
+let _lastAppliedCloudTs = 0;     // 本裝置最後套用的雲端版本時間戳（衝突偵測用）
+let _dirtySinceSync = false;     // 自上次同步後本機是否有未發佈的變更
 
 // 發佈：把完整系統資料（人員/房間/排程/座標/標籤）寫入雲端，所有裝置即時同步
 async function publishLayout() {
@@ -3022,10 +3061,23 @@ async function publishLayout() {
     return;
   }
   const btn = document.getElementById('btn-publish');
-  const ts = Date.now();
-  _lastPublishTs = ts;
   try {
     if (btn) { btn.disabled = true; btn.textContent = '☁️ 發佈中…'; }
+    // ── 衝突偵測：若雲端已有比本裝置所知更新的版本（其他裝置剛發佈），警告後才覆蓋 ──
+    if (window.fbGetLayout) {
+      try {
+        const cloud = await window.fbGetLayout();
+        if (cloud?.updatedAt && cloud.updatedAt > _lastAppliedCloudTs && cloud.updatedAt !== _lastPublishTs) {
+          const when = new Date(cloud.updatedAt).toLocaleString('zh-TW');
+          if (!confirm(`⚠️ 偵測到雲端有其他裝置發佈的較新資料（${when}），尚未同步到此裝置。\n\n繼續發佈將以「本機資料」覆蓋雲端版本，對方的變更會遺失。\n\n確定要覆蓋嗎？（建議先取消，等待自動同步後再確認）`)) {
+            toast('已取消發佈');
+            return;
+          }
+        }
+      } catch (e) { console.warn('[publish] 衝突檢查失敗，照常發佈:', e); }
+    }
+    const ts = Date.now();
+    _lastPublishTs = ts;
     // JSON round-trip 移除 undefined（Firestore 不接受），保留 null
     const payload = JSON.parse(JSON.stringify({
       persons:         state.persons || [],
@@ -3040,6 +3092,8 @@ async function publishLayout() {
     }));
     payload.updatedAt = ts;
     await window.fbPublishLayout(payload);
+    _lastAppliedCloudTs = ts;    // 雲端現在就是本機版本
+    _dirtySinceSync = false;
     toast('✅ 已發佈，全裝置即時同步（人員/房間/排程/位置）');
   } catch (e) {
     toast('發佈失敗：' + (e.message || e), 'err');
@@ -3051,7 +3105,13 @@ async function publishLayout() {
 // 套用雲端完整資料（由 Firebase 即時監聽呼叫）→ 統計/人員/房間/排程/地圖全部即時更新
 function applyRemoteLayout(data) {
   if (!data) return;
-  if (data.updatedAt && data.updatedAt === _lastPublishTs) return; // 略過自己的回音
+  if (data.updatedAt) _lastAppliedCloudTs = Math.max(_lastAppliedCloudTs, data.updatedAt);
+  if (data.updatedAt && data.updatedAt === _lastPublishTs) { _dirtySinceSync = false; return; } // 略過自己的回音
+  // 本機有未發佈的變更即將被雲端覆蓋 → 先備份到 localStorage，可救回
+  if (_dirtySinceSync) {
+    try { localStorage.setItem('tca_v5_backup', JSON.stringify({ ts: Date.now(), state })); } catch (e) {}
+    toast('⚠️ 已套用其他裝置的雲端更新，您未發佈的本機變更已備份（tca_v5_backup）', 'err');
+  }
   if (data.persons)         state.persons = data.persons;
   if (data.schedules)       state.schedules = data.schedules;
   if (data.projects)        state.projects = data.projects;
@@ -3062,6 +3122,7 @@ function applyRemoteLayout(data) {
   if (data.nextProjectId)   state.nextProjectId = data.nextProjectId;
   if (data.nextLabelId)     state.nextLabelId = data.nextLabelId;
   saveState();
+  _dirtySinceSync = false;   // 本機狀態已與雲端一致
   updateProjectDatalist();
   renderAll();   // 重繪統計 + 人員 + 房間 + 排程 + 地圖
   if (selectedRoom && state.floors[currentFloor]?.rooms[selectedRoom]) renderRoomDetail(selectedRoom);
@@ -3084,9 +3145,9 @@ function renderRoomDetail(roomId) {
   document.getElementById('room-detail-body').innerHTML=`
     <div class="room-detail-header" style="background:${headerBg}">
       <h2>${isFemale?'🌸':'🏠'} ${currentFloor} · ${roomId}</h2>
-      <div class="sub">${room.type} · ${room.beds.length} 床位</div>
+      <div class="sub">${esc(room.type)} · ${room.beds.length} 床位</div>
       <div class="sub">狀態：<span style="color:${sCol};font-weight:700">${sText}</span>（${occ}/${room.beds.length}）</div>
-      ${room.note?`<div class="sub">備註：${room.note}</div>`:''}
+      ${room.note?`<div class="sub">備註：${esc(room.note)}</div>`:''}
     </div>
     <div class="section-title" style="margin-top:0">床位配置</div>
     <div class="drag-hint">從左側人員清單拖曳至床位</div>
@@ -3099,10 +3160,10 @@ function renderRoomDetail(roomId) {
           ondragleave="this.classList.remove('drag-over')"
           ondrop="onBedDrop(event,'${roomId}',${i})">
           ${p?`<button class="bed-remove" onclick="event.stopPropagation();unassignBed('${roomId}',${i})">✕</button>
-            <div style="width:26px;height:26px;border-radius:50%;background:${avColor(p.id)};color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">${avLetter(p.name)}</div>
-            <div class="bed-name">${p.name}${p.gender==='F'?' ♀':''}</div>
-            <div class="bed-dept">${p.dept||''}</div>
-            ${p.classPeriod?`<div style="font-size:8px;color:#3182ce;margin-top:1px">${p.classPeriod}</div>`:''}`
+            <div style="width:26px;height:26px;border-radius:50%;background:${avColor(p.id)};color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">${esc(avLetter(p.name))}</div>
+            <div class="bed-name">${esc(p.name)}${p.gender==='F'?' ♀':''}</div>
+            <div class="bed-dept">${esc(p.dept)}</div>
+            ${p.classPeriod?`<div style="font-size:8px;color:#3182ce;margin-top:1px">${esc(p.classPeriod)}</div>`:''}`
           :`<div style="font-size:18px">🛏️</div><div style="font-size:10px;color:#a0aec0">床位 ${i+1}</div>`}
         </div>`;
       }).join('')}
@@ -3110,7 +3171,7 @@ function renderRoomDetail(roomId) {
     ${scheds.length?`<div class="section-title">住宿排程</div>
       ${scheds.map(s=>{const p=state.persons.find(x=>x.id===s.personId);return`
         <div class="sched-row"><div class="sched-dot" style="background:${avColor(s.personId||0)}"></div>
-        <div style="flex:1"><div>${p?p.name:'?'}·床${(s.bedIdx||0)+1}</div><div style="color:#a0aec0;font-size:10px">${s.checkIn}~${s.checkOut}</div></div>
+        <div style="flex:1"><div>${p?esc(p.name):'?'}·床${(s.bedIdx||0)+1}</div><div style="color:#a0aec0;font-size:10px">${esc(s.checkIn)}~${esc(s.checkOut)}</div></div>
         <button class="btn btn-danger btn-sm" onclick="removeSchedule(${s.id})">✕</button></div>`;
       }).join('')}`:''}
     <div style="margin-top:12px;display:flex;gap:6px">
@@ -3403,7 +3464,7 @@ function buildAllFloorsView() {
       addBox(plane, lbl.x, lbl.y, lbl.w, lbl.h, 30,
         `background:${lbl.fill};opacity:.45;border:1px solid ${lbl.border}`,
         `background:${lbl.fill};border:1.5px solid ${lbl.border};color:${lbl.color || '#2d3748'};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;white-space:pre-line;text-align:center;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18)`,
-        lbl.text.replace(/</g,'&lt;'),
+        esc(lbl.text),
         lbl.r);
     });
 
@@ -3421,7 +3482,7 @@ function buildAllFloorsView() {
       addBox(plane, pos.x, pos.y, pos.w, pos.h, RH,
         `background:${bg};opacity:.45;border:1px solid ${border}`,
         `background:${bg};border:1.5px solid ${border};border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#2d3748;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18)`,
-        `<div>${room.number}</div><div style="font-size:8px;font-weight:600;color:#4a5568">${occ}/${room.beds.length}</div>`,
+        `<div>${esc(room.number)}</div><div style="font-size:8px;font-weight:600;color:#4a5568">${occ}/${room.beds.length}</div>`,
         pos.r);
     });
 
@@ -3683,14 +3744,14 @@ function renderMaintenanceLogs() {
           <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">
             <span style="font-size:11px;background:#e2e8f0;border-radius:4px;padding:2px 6px;font-weight:600">${prioLabel[l.priority]||'🟡 一般'}</span>
             <span style="font-size:11px;font-weight:700;color:${l.status==='done'?'#276749':l.status==='in_progress'?'#c05621':'#c53030'}">${statusLabel[l.status]||'待處理'}</span>
-            ${(l.floor||l.room)?`<span style="font-size:11px;color:#3182ce;background:#ebf8ff;padding:2px 6px;border-radius:4px">${l.floor||''} ${l.room||''}</span>`:''}
+            ${(l.floor||l.room)?`<span style="font-size:11px;color:#3182ce;background:#ebf8ff;padding:2px 6px;border-radius:4px">${esc(l.floor)} ${esc(l.room)}</span>`:''}
             ${l.type==='resident'?'<span style="font-size:10px;color:#805ad5;background:#faf5ff;border-radius:4px;padding:2px 6px">住宿者回饋</span>':''}
           </div>
-          <div style="font-size:13px;font-weight:600;color:#2d3748;margin-bottom:4px">${l.issue||''}</div>
+          <div style="font-size:13px;font-weight:600;color:#2d3748;margin-bottom:4px">${esc(l.issue)}</div>
           <div style="font-size:11px;color:#718096">
-            👤 ${l.reporterName||l.name||'匿名'}${(l.reporterPhone||l.phone)?' ☎ '+(l.reporterPhone||l.phone):''}
-            · 📅 ${l.createdAt||''}
-            ${l.note?`<br>📝 ${l.note}`:''}
+            👤 ${esc(l.reporterName||l.name||'匿名')}${(l.reporterPhone||l.phone)?' ☎ '+esc(l.reporterPhone||l.phone):''}
+            · 📅 ${esc(l.createdAt)}
+            ${l.note?`<br>📝 ${esc(l.note)}`:''}
           </div>
         </div>
         <button onclick="openAddMaintModal(${l.id})" title="編輯" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;color:#718096;flex-shrink:0" onmouseover="this.style.color='#3182ce'" onmouseout="this.style.color='#718096'">✏️</button>
@@ -3914,7 +3975,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- ═══ Firebase 雲端佈局同步 ═══ -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBvOGLCl80jWJ7LzubbrJpVf7c9_nmNbv4",
@@ -3933,6 +3994,8 @@ try {
 
   // 提供發佈函式給主程式
   window.fbPublishLayout = (data) => setDoc(layoutRef, data);
+  // 一次性讀取雲端佈局（發佈前衝突檢查用）
+  window.fbGetLayout = () => getDoc(layoutRef).then(s => s.exists() ? s.data() : null);
 
   // 即時監聽：任何人發佈後，所有開啟的頁面自動套用
   onSnapshot(layoutRef, (snap) => {
