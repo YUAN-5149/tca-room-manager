@@ -674,8 +674,8 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 </div>
 
 <!-- 全樓層立體堆疊檢視 -->
-<div id="allfloors-view" style="display:none;position:fixed;inset:0;z-index:4500;background:#e2e5e9;overflow:auto">
-  <div style="position:sticky;top:0;z-index:10;background:rgba(45,55,72,.96);color:white;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+<div id="allfloors-view" style="display:none;position:fixed;inset:0;z-index:4500;background:#e2e5e9;overflow:hidden;flex-direction:column">
+  <div style="flex-shrink:0;z-index:10;background:rgba(45,55,72,.96);color:white;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2)">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:17px;font-weight:700">🏢 全樓層檢視</span>
       <span style="font-size:12px;opacity:.75">🖱️ 拖曳旋轉 · 滾輪縮放 · 點房間查看與排房</span>
@@ -690,7 +690,29 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       <button onclick="closeAllFloorsView()" title="快捷鍵 Esc" style="background:#e53e3e;color:white;border:none;border-radius:6px;padding:6px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-left:6px">✕ 關閉</button>
     </div>
   </div>
-  <div id="allfloors-stage" style="position:relative;max-width:1100px;margin:0 auto;padding:10px 20px 60px"></div>
+  <!-- 上色方式與日期檢視控制列 -->
+  <div id="af-controls" style="flex-shrink:0;z-index:9;background:#edf2f7;border-bottom:1px solid #cbd5e0;padding:7px 18px;display:flex;gap:8px 18px;align-items:center;flex-wrap:wrap;font-size:13px;color:#2d3748">
+    <label style="display:flex;align-items:center;gap:6px;font-weight:600">🎨 上色
+      <select id="af-color" onchange="_afSetColor(this.value)" style="padding:4px 6px;border:1px solid #a0aec0;border-radius:5px;font-size:13px;font-family:inherit">
+        <option value="status">入住狀態</option>
+        <option value="project">專案班期</option>
+        <option value="gender">性別</option>
+        <option value="repair">修繕狀態</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-weight:600;cursor:pointer">
+      <input type="checkbox" id="af-datemode" onchange="_afSetDateMode(this.checked)" style="width:15px;height:15px;cursor:pointer"> 📅 依日期檢視排程
+    </label>
+    <span id="af-datebox" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+      <button class="af-tb" style="padding:3px 9px" onclick="_afShiftDate(-1)" title="前一天">◀</button>
+      <input type="range" id="af-date-range" oninput="_afSetDay(+this.value)" style="width:min(300px,38vw);cursor:pointer">
+      <button class="af-tb" style="padding:3px 9px" onclick="_afShiftDate(1)" title="後一天">▶</button>
+      <input type="date" id="af-date-input" onchange="if(this.value)_afSetDate(this.value)" style="padding:3px 6px;border:1px solid #a0aec0;border-radius:5px;font-size:13px;font-family:inherit">
+      <button class="af-tb" style="padding:3px 9px" onclick="_afSetDate(new Date().toISOString().slice(0,10))">今天</button>
+      <span id="af-date-info" style="font-size:12px;color:#4a5568"></span>
+    </span>
+  </div>
+  <div id="allfloors-stage" style="position:relative;flex:1;min-height:0"></div>
 </div>
 
 <!-- QR 放大檢視 -->
@@ -3352,9 +3374,135 @@ function renderAll() {
 }
 
 // ─── 全樓層立體堆疊檢視 ────────────────────────────────
+// ── 檢視選項：上色方式與日期 ──
+function _afDayNum(iso) { return Math.round(Date.parse(iso + 'T00:00:00Z') / 864e5); }
+function _afDayISO(n)   { return new Date(n * 864e5).toISOString().slice(0, 10); }
+
+// 取得房間各床住宿者：一般模式讀目前床位配置；日期模式讀該日有效的住宿排程
+function _afOccupants(fl, roomId) {
+  const room = state.floors[fl]?.rooms[roomId]; if (!room) return [];
+  const o = window._afOpt || {};
+  if (!o.dateMode) {
+    return room.beds.map(pid => pid !== null ? (state.persons.find(x => x.id === pid) || { name: '(已刪除)', gender: 'M' }) : null);
+  }
+  const arr = Array(room.beds.length).fill(null);
+  state.schedules.forEach(s => {
+    if (s.floor !== fl || s.roomId !== roomId || !(s.checkIn <= o.date && s.checkOut >= o.date)) return;
+    const p = state.persons.find(x => x.id === s.personId);
+    if (!p || arr.includes(p)) return;
+    const i = (Number.isInteger(s.bedIdx) && s.bedIdx < arr.length && !arr[s.bedIdx]) ? s.bedIdx : arr.indexOf(null);
+    if (i >= 0) arr[i] = p;
+  });
+  return arr;
+}
+
+const _AF_PAL = ['#3182ce', '#38a169', '#d69e2e', '#e53e3e', '#805ad5', '#dd6b20', '#319795', '#d53f8c', '#5a67d8', '#718096'];
+function _afProjNames() {
+  const names = (state.projects || []).map(p => p.name).filter(Boolean);
+  state.persons.forEach(p => { if (p.classPeriod && !names.includes(p.classPeriod)) names.push(p.classPeriod); });
+  return names;
+}
+function _afProjColor(name) {
+  if (!name) return '#a0aec0';
+  const i = _afProjNames().indexOf(name);
+  return _AF_PAL[(i < 0 ? 0 : i) % _AF_PAL.length];
+}
+// 房間未結案的修繕記錄中最嚴重的狀態：pending > in_progress > null
+function _afRepairState(fl, room) {
+  let st = null;
+  (state.maintenanceLogs || []).forEach(l => {
+    if (l.status === 'done' || l.floor !== fl) return;
+    if (!String(l.room || '').includes(String(room.number))) return;
+    if (l.status === 'pending') st = 'pending';
+    else if (!st) st = 'in_progress';
+  });
+  return st;
+}
+// 依上色方式決定房間量體顏色 [底色, 邊框色]
+function _afRoomStyle(fl, room, occ) {
+  const mode = (window._afOpt || {}).color || 'status';
+  const people = occ.filter(Boolean);
+  const EMPTY = ['rgba(226,232,240,.9)', '#a0aec0'];
+  if (mode === 'gender') {
+    if (!people.length) return EMPTY;
+    const f = people.filter(p => p.gender === 'F').length;
+    if (f === 0) return ['rgba(190,227,248,.92)', '#3182ce'];
+    if (f === people.length) return ['rgba(255,192,203,.92)', '#d53f8c'];
+    return ['rgba(233,216,253,.92)', '#805ad5'];
+  }
+  if (mode === 'project') {
+    if (!people.length) return EMPTY;
+    const cnt = {};
+    people.forEach(p => { const k = p.classPeriod || ''; cnt[k] = (cnt[k] || 0) + 1; });
+    const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+    const c = _afProjColor(top);
+    return [c + '59', c];
+  }
+  if (mode === 'repair') {
+    const st = _afRepairState(fl, room);
+    if (st === 'pending') return ['rgba(254,178,178,.95)', '#c53030'];
+    if (st === 'in_progress') return ['rgba(251,211,141,.95)', '#c05621'];
+    return EMPTY;
+  }
+  // 入住狀態（預設）
+  if (!people.length) return ['rgba(198,246,213,.9)', '#38a169'];
+  if (people.some(p => p.gender === 'F')) return ['rgba(255,192,203,.9)', '#d53f8c'];
+  return people.length >= occ.length ? ['rgba(254,215,215,.92)', '#e53e3e'] : ['rgba(254,252,191,.92)', '#d69e2e'];
+}
+function _afLegendHtml() {
+  const mode = (window._afOpt || {}).color || 'status';
+  const sw = (bg, bd, t) => `<span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:10px;height:10px;border-radius:2px;background:${bg};border:1px solid ${bd};box-sizing:border-box"></i>${t}</span>`;
+  let rooms;
+  if (mode === 'gender') rooms = sw('rgba(190,227,248,1)', '#3182ce', '男性房') + sw('rgba(255,192,203,1)', '#d53f8c', '女性房') + sw('rgba(233,216,253,1)', '#805ad5', '混住') + sw('#e2e8f0', '#a0aec0', '空房');
+  else if (mode === 'project') {
+    const used = [...new Set(state.persons.filter(p => p.assignedRoom || (window._afOpt || {}).dateMode).map(p => p.classPeriod || ''))];
+    rooms = used.slice(0, 8).map(n => sw(_afProjColor(n) + '59', _afProjColor(n), esc(n || '未歸類'))).join('') + sw('#e2e8f0', '#a0aec0', '空房');
+  }
+  else if (mode === 'repair') rooms = sw('rgba(254,178,178,1)', '#c53030', '待處理') + sw('rgba(251,211,141,1)', '#c05621', '處理中') + sw('#e2e8f0', '#a0aec0', '無待修');
+  else rooms = sw('#c6f6d5', '#38a169', '空房') + sw('#fefcbf', '#d69e2e', '部分') + sw('#fed7d7', '#e53e3e', '客滿') + sw('#ffc0cb', '#d53f8c', '女性房');
+  const beds = mode === 'project'
+    ? '<span style="color:#718096">床位顏色＝該員專案</span>'
+    : sw('#3182ce', '#3182ce', '男') + sw('#d53f8c', '#d53f8c', '女');
+  return `<b>房間</b>${rooms}<span style="width:1px;height:14px;background:#cbd5e0"></span><b>床位</b>${beds}${sw('transparent', '#a0aec0', '空床')}`;
+}
+
+function _afSyncControls() {
+  const o = window._afOpt;
+  document.getElementById('af-color').value = o.color;
+  document.getElementById('af-datemode').checked = o.dateMode;
+  document.getElementById('af-datebox').style.display = o.dateMode ? 'flex' : 'none';
+  const rg = document.getElementById('af-date-range');
+  const day = _afDayNum(o.date);
+  // 滑桿範圍涵蓋所有排程日期（至少前後各 30 天），並包含目前所選日期
+  const days = state.schedules.flatMap(s => [s.checkIn, s.checkOut]).filter(Boolean).map(_afDayNum).filter(n => !isNaN(n));
+  const today = _afDayNum(new Date().toISOString().slice(0, 10));
+  rg.min = Math.min(today - 30, day, ...days);
+  rg.max = Math.max(today + 30, day, ...days);
+  rg.value = day;
+  document.getElementById('af-date-input').value = o.date;
+  if (o.dateMode) {
+    const n = state.schedules.filter(s => s.checkIn <= o.date && s.checkOut >= o.date).length;
+    const wd = '日一二三四五六'[new Date(o.date + 'T00:00:00').getDay()];
+    document.getElementById('af-date-info').textContent = `（${wd}）當日排程 ${n} 筆 · 唯讀檢視`;
+  }
+}
+let _afRebuildRaf = 0;
+function _afRefresh() {
+  _afSyncControls();
+  cancelAnimationFrame(_afRebuildRaf);
+  _afRebuildRaf = requestAnimationFrame(() => buildAllFloorsView(true));
+}
+function _afSetColor(v)    { window._afOpt.color = v; _afRefresh(); }
+function _afSetDateMode(b) { window._afOpt.dateMode = b; _afRefresh(); }
+function _afSetDate(iso)   { window._afOpt.date = iso; window._afOpt.dateMode = true; _afRefresh(); }
+function _afSetDay(n)      { _afSetDate(_afDayISO(n)); }
+function _afShiftDate(d)   { _afSetDay(_afDayNum(window._afOpt.date) + d); }
+
 function openAllFloorsView() {
   window._afSel = null;
-  document.getElementById('allfloors-view').style.display = 'block';
+  window._afOpt = { color: 'status', dateMode: false, date: new Date().toISOString().slice(0, 10) };
+  document.getElementById('allfloors-view').style.display = 'flex';
+  _afSyncControls();
   buildAllFloorsView();
   document.body.style.overflow = 'hidden';
   document.addEventListener('keydown', _afKey);
@@ -3426,10 +3574,11 @@ function _afShowRoom(fl, roomId) {
   document.querySelectorAll('#af-scene [data-room-key]').forEach(el => {
     el.style.outline = el.dataset.roomKey === fl + ':' + roomId ? '3px solid #2b6cb0' : '';
   });
-  const occ = room.beds.filter(b => b !== null).length;
+  const opt = window._afOpt || {};
+  const people = _afOccupants(fl, roomId);
+  const occ = people.filter(Boolean).length;
   const free = state.persons.filter(p => !p.assignedRoom);
-  const rows = room.beds.map((pid, i) => {
-    const p = pid !== null ? state.persons.find(x => x.id === pid) : null;
+  const rows = people.map((p, i) => {
     if (!p) return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px dashed #cbd5e0;border-radius:6px;margin-bottom:5px;color:#a0aec0;font-size:12px">🛏️ 床位 ${i + 1}　空床</div>`;
     const col = p.gender === 'F' ? '#d53f8c' : '#3182ce';
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #e2e8f0;border-left:4px solid ${col};border-radius:6px;margin-bottom:5px;background:#f7fafc">
@@ -3437,10 +3586,16 @@ function _afShowRoom(fl, roomId) {
         <div style="font-size:13px;font-weight:600;color:#2d3748">床${i + 1}　${esc(p.name)}${p.gender === 'F' ? ' ♀' : ''}</div>
         <div style="font-size:10px;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.dept)}${p.classPeriod ? ' · ' + esc(p.classPeriod) : ''}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="_afUnassign(${i})" title="移出此床位">✕</button>
+      ${opt.dateMode ? '' : `<button class="btn btn-danger btn-sm" onclick="_afUnassign(${i})" title="移出此床位">✕</button>`}
     </div>`;
   }).join('');
-  const assign = occ >= room.beds.length
+  // 未結案的修繕項目
+  const repairs = (state.maintenanceLogs || []).filter(l => l.status !== 'done' && l.floor === fl && String(l.room || '').includes(String(room.number)));
+  const repairHtml = repairs.length ? `<div style="margin-top:8px;padding:7px 9px;background:#fffaf0;border:1px solid #fbd38d;border-radius:6px;font-size:11px;color:#744210">
+      <b>🔧 未結案修繕 ${repairs.length} 件</b>${repairs.map(l => `<div style="margin-top:3px">・${l.status === 'pending' ? '待處理' : '處理中'}：${esc(l.issue)}</div>`).join('')}</div>` : '';
+  const assign = opt.dateMode
+    ? `<div style="font-size:11px;color:#718096;margin-top:6px">📅 ${esc(opt.date)} 的排程檢視（唯讀）。要排房請先取消「依日期檢視排程」。</div>`
+    : occ >= room.beds.length
     ? '<div style="font-size:11px;color:#c53030;margin-top:6px">此房間已客滿</div>'
     : free.length
       ? `<div style="display:flex;gap:6px;margin-top:8px">
@@ -3456,7 +3611,7 @@ function _afShowRoom(fl, roomId) {
       <button onclick="_afClosePanel()" style="background:none;border:none;font-size:18px;color:#a0aec0;cursor:pointer">✕</button>
     </div>
     <div style="font-size:11px;color:#718096;margin-bottom:8px">${esc(room.type)} · 入住 ${occ}/${room.beds.length} 床${room.note ? ' · ' + esc(room.note) : ''}</div>
-    ${rows}${assign}
+    ${rows}${assign}${repairHtml}
     <button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" onclick="_afGoto()">在平面圖開啟此房間</button>`;
   panel.style.display = 'block';
 }
@@ -3483,26 +3638,14 @@ function _afGoto() {
   selectRoom(sel.roomId);
 }
 
-function _floorStats(fl) {
-  const rooms = Object.values(state.floors[fl]?.rooms || {});
-  const totalBeds = rooms.reduce((s, r) => s + r.beds.length, 0);
-  const occBeds   = rooms.reduce((s, r) => s + r.beds.filter(b => b !== null).length, 0);
-  const fullCnt   = rooms.filter(r => getRoomStatus(r) === 'full').length;
-  const emptyCnt  = rooms.filter(r => getRoomStatus(r) === 'empty').length;
-  return { rooms: rooms.length, totalBeds, occBeds, fullCnt, emptyCnt };
-}
-
 function buildAllFloorsView(keepView) {
   const stage = document.getElementById('allfloors-stage');
   const prevRot = keepView && window._afRot ? { ...window._afRot } : null;   // 重建時保留視角
   stage.innerHTML = '';
   // 滿版單頁：3D 透視場景，不需捲動
-  stage.style.cssText = 'position:relative;height:calc(100vh - 52px);max-width:none;margin:0;padding:0;overflow:hidden;perspective:1500px;perspective-origin:50% 38%';
-  const ROOM_BG = {
-    empty:  ['rgba(198,246,213,.9)', '#38a169'],
-    partial:['rgba(254,252,191,.92)','#d69e2e'],
-    full:   ['rgba(254,215,215,.92)','#e53e3e'],
-  };
+  stage.style.cssText = 'position:relative;flex:1;min-height:0;max-width:none;margin:0;padding:0;overflow:hidden;perspective:1500px;perspective-origin:50% 38%';
+  const opt = window._afOpt || { color: 'status', dateMode: false };
+  const floorStat = { '5F': { rooms: 0, beds: 0, occ: 0, full: 0, empty: 0 }, '6F': { rooms: 0, beds: 0, occ: 0, full: 0, empty: 0 } };
   const W = 620, GAP = 190;   // 圖面寬度與樓層高度(px)
 
   // ── 3D 場景：兩層樓為同場景中的平行平面，沿 Z 軸分層 ──
@@ -3638,19 +3781,21 @@ function buildAllFloorsView(keepView) {
     Object.keys(FLOOR_ROOMS[fl] || {}).forEach(roomId => {
       const room = rooms[roomId]; if (!room) return;
       const pos = getRoomPos(roomId, fl); if (!pos) return;
-      const status = getRoomStatus(room);
-      let [bg, border] = ROOM_BG[status] || ROOM_BG.empty;
-      if (getRoomGenderStatus(room) === 'female') { bg = 'rgba(255,192,203,.9)'; border = '#d53f8c'; }
-      const occ = room.beds.filter(b => b !== null).length;
+      const people = _afOccupants(fl, roomId);          // 各床住宿者（日期模式下取自排程）
+      const occ = people.filter(Boolean).length;
+      const [bg, border] = _afRoomStyle(fl, room, people);
+      const fs = floorStat[fl];
+      fs.rooms++; fs.beds += people.length; fs.occ += occ;
+      if (occ === 0) fs.empty++; else if (occ >= people.length) fs.full++;
       // 房間立體量體：彩色玻璃牆向上延伸，頂面顯示房號與入住數（清晰可讀）
       const RH = 30;
-      // 床位方塊：每張床一格，有人住依性別上色（男藍／女粉），空床為虛線白格
-      const beds = room.beds.map(pid => {
-        const p = pid !== null ? state.persons.find(x => x.id === pid) : null;
-        return p
-          ? `<i style="display:block;width:8px;height:8px;border-radius:2px;background:${p.gender === 'F' ? '#d53f8c' : '#3182ce'};box-shadow:0 2px 0 ${p.gender === 'F' ? '#97266d' : '#1e4e8c'}"></i>`
-          : `<i style="display:block;width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,.75);border:1px dashed #a0aec0;box-sizing:border-box"></i>`;
+      // 床位方塊：每張床一格；依上色方式著色（預設男藍／女粉；專案模式為該員專案色），空床為虛線白格
+      const beds = people.map(p => {
+        if (!p) return `<i style="display:block;width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,.75);border:1px dashed #a0aec0;box-sizing:border-box"></i>`;
+        const c = opt.color === 'project' ? _afProjColor(p.classPeriod) : (p.gender === 'F' ? '#d53f8c' : '#3182ce');
+        return `<i style="display:block;width:8px;height:8px;border-radius:2px;background:${c};box-shadow:0 2px 0 rgba(0,0,0,.35)"></i>`;
       }).join('');
+      const repairIcon = opt.color === 'repair' && _afRepairState(fl, room) ? '🔧 ' : '';
       const rb = addBox(plane, pos.x, pos.y, pos.w, pos.h, RH,
         `background:${bg};opacity:.45;border:1px solid ${border}`,
         `background:${bg};border:1.5px solid ${border};border-radius:3px;display:flex;flex-wrap:wrap;gap:2px;align-items:center;align-content:center;justify-content:center;padding:2px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18);pointer-events:auto;cursor:pointer`,
@@ -3661,7 +3806,7 @@ function buildAllFloorsView(keepView) {
       rb._top.onclick = openRoom;
       // 房號標籤：永遠面向鏡頭
       const pill = addBillboard(rb, RH + 15,
-        `${esc(room.number)} <span style="opacity:.7;font-weight:600">${occ}/${room.beds.length}</span>`,
+        `${repairIcon}${esc(room.number)} <span style="opacity:.7;font-weight:600">${occ}/${room.beds.length}</span>`,
         PILL + ';pointer-events:auto;cursor:pointer', pos.r);
       pill.onclick = openRoom;
     });
@@ -3706,21 +3851,18 @@ function buildAllFloorsView(keepView) {
 
   // ── 樓層資訊標籤（平面 HTML，固定於畫面左側）──
   [['6F', '13%'], ['5F', '58%']].forEach(([fl, top]) => {
-    const st = _floorStats(fl);
+    const st = floorStat[fl];
     const tag = document.createElement('div');
     tag.style.cssText = `position:absolute;left:18px;top:${top};z-index:5;background:rgba(45,55,72,.92);color:white;border-radius:10px;padding:10px 16px;box-shadow:0 3px 10px rgba(0,0,0,.25);pointer-events:none`;
     tag.innerHTML = `<div style="font-size:26px;font-weight:800;line-height:1">${fl}</div>
-      <div style="font-size:11px;margin-top:6px;opacity:.9;line-height:1.7">🏠 ${st.rooms} 間房<br>🛏️ 入住 ${st.occBeds}/${st.totalBeds} 床<br>🔴 客滿 ${st.fullCnt} · 🟢 空房 ${st.emptyCnt}</div>`;
+      <div style="font-size:11px;margin-top:6px;opacity:.9;line-height:1.7">${opt.dateMode ? '📅 ' + esc(opt.date) + '<br>' : ''}🏠 ${st.rooms} 間房<br>🛏️ 入住 ${st.occ}/${st.beds} 床<br>🔴 客滿 ${st.full} · 🟢 空房 ${st.empty}</div>`;
     stage.appendChild(tag);
   });
 
   // ── 圖例 ──
   const legend = document.createElement('div');
-  legend.style.cssText = 'position:absolute;left:18px;bottom:14px;z-index:5;background:rgba(255,255,255,.92);border-radius:8px;padding:7px 11px;font-size:11px;color:#4a5568;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;gap:12px;align-items:center;pointer-events:none';
-  legend.innerHTML = `<b>床位</b>
-    <span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:9px;height:9px;border-radius:2px;background:#3182ce"></i>男</span>
-    <span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:9px;height:9px;border-radius:2px;background:#d53f8c"></i>女</span>
-    <span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:9px;height:9px;border-radius:2px;border:1px dashed #a0aec0;box-sizing:border-box"></i>空床</span>`;
+  legend.style.cssText = 'position:absolute;left:18px;bottom:14px;max-width:calc(100% - 36px);z-index:5;background:rgba(255,255,255,.92);border-radius:8px;padding:7px 11px;font-size:11px;color:#4a5568;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;flex-wrap:wrap;gap:5px 11px;align-items:center;pointer-events:none';
+  legend.innerHTML = _afLegendHtml();
   stage.appendChild(legend);
 
   // ── 房間資訊面板（點房間後顯示）──
