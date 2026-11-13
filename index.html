@@ -188,6 +188,10 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 .zoom-ctrl button:nth-child(5){background:#dd6b20;font-size:13px;font-weight:700} /* 重置 橙 */
 #zoom-label{font-size:14px;font-weight:800;color:#1a202c;min-width:46px;text-align:center;background:#fff;border:1.5px solid #cbd5e0;border-radius:6px;padding:3px 4px}
 
+/* 全樓層 3D 檢視工具列按鈕 */
+.af-tb{background:#4a5568;color:white;border:none;border-radius:6px;padding:6px 11px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.af-tb:hover{background:#718096}
+
 /* 面板拖移分隔線 — 拖動調整左右面板寬度（不超過中線） */
 .resizer{width:6px;flex-shrink:0;cursor:col-resize;background:#cbd5e0;position:relative;z-index:60;transition:background .15s}
 .resizer:hover,.resizer.dragging{background:#3182ce}
@@ -674,9 +678,17 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   <div style="position:sticky;top:0;z-index:10;background:rgba(45,55,72,.96);color:white;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2)">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:17px;font-weight:700">🏢 全樓層檢視</span>
-      <span style="font-size:12px;opacity:.75">🖱️ 拖曳可旋轉視角 · 點擊任一樓層圖面即可進入該樓層</span>
+      <span style="font-size:12px;opacity:.75">🖱️ 拖曳旋轉 · 滾輪縮放 · 點房間查看與排房</span>
     </div>
-    <button onclick="closeAllFloorsView()" style="background:#e53e3e;color:white;border:none;border-radius:6px;padding:6px 16px;font-size:14px;font-weight:700;cursor:pointer">✕ 關閉</button>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="af-tb" onclick="_afView('top')" title="快捷鍵 1">俯視</button>
+      <button class="af-tb" onclick="_afView('front')" title="快捷鍵 2">正面</button>
+      <button class="af-tb" onclick="_afView('iso')" title="快捷鍵 3">等角</button>
+      <button class="af-tb" onclick="_afZoom(1/1.2)" title="快捷鍵 -">－</button>
+      <button class="af-tb" onclick="_afZoom(1.2)" title="快捷鍵 +">＋</button>
+      <button class="af-tb" onclick="_afView('reset')" title="快捷鍵 0">重置</button>
+      <button onclick="closeAllFloorsView()" title="快捷鍵 Esc" style="background:#e53e3e;color:white;border:none;border-radius:6px;padding:6px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-left:6px">✕ 關閉</button>
+    </div>
   </div>
   <div id="allfloors-stage" style="position:relative;max-width:1100px;margin:0 auto;padding:10px 20px 60px"></div>
 </div>
@@ -3341,13 +3353,134 @@ function renderAll() {
 
 // ─── 全樓層立體堆疊檢視 ────────────────────────────────
 function openAllFloorsView() {
-  buildAllFloorsView();
+  window._afSel = null;
   document.getElementById('allfloors-view').style.display = 'block';
+  buildAllFloorsView();
   document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', _afKey);
 }
 function closeAllFloorsView() {
   document.getElementById('allfloors-view').style.display = 'none';
   document.body.style.overflow = '';
+  document.removeEventListener('keydown', _afKey);
+}
+
+// ── 視角預設、縮放、鍵盤快捷鍵 ──
+function _afView(name) {
+  if (!window._afRot) return;
+  const target = {
+    top:   { x: 0,  z: 0 },
+    front: { x: 85, z: 0 },
+    iso:   { x: 60, z: -45 },
+    reset: { x: 67, z: -40, s: window._afFitS || 1 },
+  }[name];
+  if (!target) return;
+  const from = { ..._afRot }, t0 = performance.now(), dur = 350;
+  const to = { x: target.x, z: target.z, s: target.s ?? from.s };
+  // 旋轉取最短路徑
+  from.z = ((from.z - to.z + 180) % 360 + 360) % 360 - 180 + to.z;
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    _afRot.x = from.x + (to.x - from.x) * e;
+    _afRot.z = from.z + (to.z - from.z) * e;
+    _afRot.s = from.s + (to.s - from.s) * e;
+    _afApply();
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function _afZoom(f) {
+  if (!window._afRot) return;
+  _afRot.s = Math.max(0.3, Math.min(3.5, _afRot.s * f));
+  _afApply();
+}
+function _afKey(e) {
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const k = e.key;
+  if (k === 'Escape') { if (window._afSel) _afClosePanel(); else closeAllFloorsView(); }
+  else if (k === '1') _afView('top');
+  else if (k === '2') _afView('front');
+  else if (k === '3') _afView('iso');
+  else if (k === '0') _afView('reset');
+  else if (k === '+' || k === '=') _afZoom(1.2);
+  else if (k === '-' || k === '_') _afZoom(1 / 1.2);
+  else if (k === 'ArrowLeft')  { _afRot.z += 10; _afApply(); }
+  else if (k === 'ArrowRight') { _afRot.z -= 10; _afApply(); }
+  else if (k === 'ArrowUp')    { _afRot.x = Math.max(0, _afRot.x - 6); _afApply(); }
+  else if (k === 'ArrowDown')  { _afRot.x = Math.min(85, _afRot.x + 6); _afApply(); }
+  else return;
+  e.preventDefault();
+}
+
+// ── 3D 房間資訊面板：查看住宿者、排入／移出 ──
+function _afClosePanel() {
+  window._afSel = null;
+  const p = document.getElementById('af-panel'); if (p) p.style.display = 'none';
+  document.querySelectorAll('#af-scene [data-room-key]').forEach(el => el.style.outline = '');
+}
+function _afShowRoom(fl, roomId) {
+  const room = state.floors[fl]?.rooms[roomId];
+  const panel = document.getElementById('af-panel');
+  if (!room || !panel) return;
+  window._afSel = { fl, roomId };
+  document.querySelectorAll('#af-scene [data-room-key]').forEach(el => {
+    el.style.outline = el.dataset.roomKey === fl + ':' + roomId ? '3px solid #2b6cb0' : '';
+  });
+  const occ = room.beds.filter(b => b !== null).length;
+  const free = state.persons.filter(p => !p.assignedRoom);
+  const rows = room.beds.map((pid, i) => {
+    const p = pid !== null ? state.persons.find(x => x.id === pid) : null;
+    if (!p) return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px dashed #cbd5e0;border-radius:6px;margin-bottom:5px;color:#a0aec0;font-size:12px">🛏️ 床位 ${i + 1}　空床</div>`;
+    const col = p.gender === 'F' ? '#d53f8c' : '#3182ce';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #e2e8f0;border-left:4px solid ${col};border-radius:6px;margin-bottom:5px;background:#f7fafc">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#2d3748">床${i + 1}　${esc(p.name)}${p.gender === 'F' ? ' ♀' : ''}</div>
+        <div style="font-size:10px;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.dept)}${p.classPeriod ? ' · ' + esc(p.classPeriod) : ''}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="_afUnassign(${i})" title="移出此床位">✕</button>
+    </div>`;
+  }).join('');
+  const assign = occ >= room.beds.length
+    ? '<div style="font-size:11px;color:#c53030;margin-top:6px">此房間已客滿</div>'
+    : free.length
+      ? `<div style="display:flex;gap:6px;margin-top:8px">
+          <select id="af-assign-sel" style="flex:1;min-width:0;padding:6px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;font-family:inherit">
+            ${free.map(p => `<option value="${p.id}">${esc(p.name)}${p.gender === 'F' ? ' ♀' : ''}${p.dept ? '（' + esc(p.dept) + '）' : ''}</option>`).join('')}
+          </select>
+          <button class="btn btn-success btn-sm" onclick="_afAssign()">排入</button>
+        </div>`
+      : '<div style="font-size:11px;color:#718096;margin-top:6px">目前沒有未分配的人員</div>';
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:16px;font-weight:800;color:#2d3748">${fl} · ${esc(room.number)}</div>
+      <button onclick="_afClosePanel()" style="background:none;border:none;font-size:18px;color:#a0aec0;cursor:pointer">✕</button>
+    </div>
+    <div style="font-size:11px;color:#718096;margin-bottom:8px">${esc(room.type)} · 入住 ${occ}/${room.beds.length} 床${room.note ? ' · ' + esc(room.note) : ''}</div>
+    ${rows}${assign}
+    <button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" onclick="_afGoto()">在平面圖開啟此房間</button>`;
+  panel.style.display = 'block';
+}
+function _afAssign() {
+  const sel = window._afSel, el = document.getElementById('af-assign-sel');
+  if (!sel || !el) return;
+  const room = state.floors[sel.fl]?.rooms[sel.roomId]; if (!room) return;
+  const idx = room.beds.findIndex(b => b === null);
+  if (idx === -1) { toast('此房間已客滿', 'err'); return; }
+  if (currentFloor !== sel.fl) switchFloor(sel.fl);
+  assignPersonToBed(parseInt(el.value), sel.roomId, idx);
+  buildAllFloorsView(true);
+}
+function _afUnassign(bedIdx) {
+  const sel = window._afSel; if (!sel) return;
+  if (currentFloor !== sel.fl) switchFloor(sel.fl);
+  unassignBed(sel.roomId, bedIdx);
+  buildAllFloorsView(true);
+}
+function _afGoto() {
+  const sel = window._afSel; if (!sel) return;
+  closeAllFloorsView();
+  if (currentFloor !== sel.fl) switchFloor(sel.fl);
+  selectRoom(sel.roomId);
 }
 
 function _floorStats(fl) {
@@ -3359,8 +3492,9 @@ function _floorStats(fl) {
   return { rooms: rooms.length, totalBeds, occBeds, fullCnt, emptyCnt };
 }
 
-function buildAllFloorsView() {
+function buildAllFloorsView(keepView) {
   const stage = document.getElementById('allfloors-stage');
+  const prevRot = keepView && window._afRot ? { ...window._afRot } : null;   // 重建時保留視角
   stage.innerHTML = '';
   // 滿版單頁：3D 透視場景，不需捲動
   stage.style.cssText = 'position:relative;height:calc(100vh - 52px);max-width:none;margin:0;padding:0;overflow:hidden;perspective:1500px;perspective-origin:50% 38%';
@@ -3377,32 +3511,49 @@ function buildAllFloorsView() {
   scene.style.cssText = `position:absolute;left:50%;top:55%;width:${W}px;height:${W}px;margin:${-W/2}px 0 0 ${-W/2}px;transform-style:preserve-3d;transform:rotateX(60deg) rotateZ(-40deg) scale(1)`;
   stage.appendChild(scene);
 
-  // 視角狀態（拖曳旋轉用）
-  window._afRot = { x: 67, z: -40, s: 1 };
-  const _afApply = () => { scene.style.transform = `rotateX(${_afRot.x}deg) rotateZ(${_afRot.z}deg) scale(${_afRot.s})`; };
+  // 視角狀態（拖曳旋轉用）。--rx/--rz 供文字標籤反向旋轉，使其永遠面向鏡頭
+  window._afRot = prevRot || { x: 67, z: -40, s: 1 };
+  const _afApply = () => {
+    scene.style.transform = `rotateX(${_afRot.x}deg) rotateZ(${_afRot.z}deg) scale(${_afRot.s})`;
+    scene.style.setProperty('--rx', _afRot.x + 'deg');
+    scene.style.setProperty('--rz', _afRot.z + 'deg');
+  };
   window._afApply = _afApply;
+  _afApply();
 
-  // ── 拖曳旋轉視角 ──
+  // ── 拖曳旋轉視角（不使用 pointer capture，否則點擊事件到不了房間）──
   stage.style.cursor = 'grab';
   stage.style.touchAction = 'none';
   window._afDragged = false;
-  let _drag = null;
+  let _drag = null, _moved = 0;
   stage.onpointerdown = (e) => {
     _drag = { x: e.clientX, y: e.clientY };
+    _moved = 0;
     window._afDragged = false;
     stage.style.cursor = 'grabbing';
-    stage.setPointerCapture(e.pointerId);
   };
   stage.onpointermove = (e) => {
     if (!_drag) return;
     const dx = e.clientX - _drag.x, dy = e.clientY - _drag.y;
-    if (Math.abs(dx) + Math.abs(dy) > 5) window._afDragged = true;
+    _moved += Math.abs(dx) + Math.abs(dy);
+    if (_moved > 5) window._afDragged = true;
     _afRot.z += dx * 0.35;                                    // 左右旋轉
-    _afRot.x = Math.max(18, Math.min(85, _afRot.x - dy * 0.25)); // 上下俯仰（限制範圍）
+    _afRot.x = Math.max(0, Math.min(85, _afRot.x - dy * 0.25)); // 上下俯仰（限制範圍）
     _drag = { x: e.clientX, y: e.clientY };
     _afApply();
   };
-  stage.onpointerup = stage.onpointercancel = () => { _drag = null; stage.style.cursor = 'grab'; };
+  stage.onpointerup = stage.onpointercancel = stage.onpointerleave = () => { _drag = null; stage.style.cursor = 'grab'; };
+  // 滾輪縮放
+  stage.onwheel = (e) => { e.preventDefault(); _afZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1); };
+
+  // 永遠面向鏡頭的文字標籤（抵銷場景與盒體本身的旋轉）
+  function addBillboard(box, zpx, html, css, rot) {
+    const b = document.createElement('div');
+    b.style.cssText = `position:absolute;left:50%;top:50%;white-space:nowrap;transform:translate(-50%,-50%) translateZ(${zpx}px) rotateZ(calc(-1 * var(--rz) - ${rot || 0}deg)) rotateX(calc(-1 * var(--rx)));${css}`;
+    b.innerHTML = html;
+    box.appendChild(b);
+    return b;
+  }
 
   // 透明玻璃牆：由樓板四邊向上延伸
   function addWalls(plane, h) {
@@ -3439,8 +3590,10 @@ function buildAllFloorsView() {
     if (topHtml) top.innerHTML = topHtml;
     box.appendChild(top);
     plane.appendChild(box);
+    box._top = top;
     return box;
   }
+  const PILL = 'background:rgba(26,32,44,.86);color:#fff;font-size:10px;font-weight:700;line-height:1.3;padding:1px 6px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.3)';
 
   let roofEl = null;   // 屋頂板（6F 底圖載入後同步尺寸）
 
@@ -3450,10 +3603,11 @@ function buildAllFloorsView() {
     // 6F 樓板改為高透明，可透視看到下方 5F 全貌（無陰影避免霧感疊加）
     const plateBg = fl === '6F' ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.96)';
     const plateShadow = fl === '6F' ? '' : ';box-shadow:0 0 26px rgba(0,0,0,.15)';
-    plane.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${z}px);transform-style:preserve-3d;background:${plateBg};border:2px solid #a0aec0;border-radius:4px${plateShadow};cursor:pointer;transition:filter .2s`;
-    plane.title = `點擊進入 ${fl}`;
-    plane.onmouseover = () => { plane.style.filter = 'brightness(1.06)'; plane.style.outline = '3px solid #3182ce'; };
-    plane.onmouseout  = () => { plane.style.filter = ''; plane.style.outline = ''; };
+    plane.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(${z}px);transform-style:preserve-3d;background:${plateBg};border:2px solid #a0aec0;border-radius:4px${plateShadow};cursor:pointer`;
+    plane.title = `點擊空白處進入 ${fl} 平面圖`;
+    // 注意：不可對樓板套用 filter，會使 preserve-3d 子元素被壓平
+    plane.onmouseover = () => { plane.style.outline = '3px solid #3182ce'; };
+    plane.onmouseout  = () => { plane.style.outline = ''; };
     plane.onclick = () => { if (window._afDragged) return; closeAllFloorsView(); if (currentFloor !== fl) switchFloor(fl); toast(`已切換至 ${fl}`); };
 
     const img = document.createElement('img');
@@ -3471,11 +3625,12 @@ function buildAllFloorsView() {
 
     // 區域標籤（倉庫/物品區/洗衣間等）：與寢室相同的立體量體呈現
     (state.labels?.[fl] || []).forEach(lbl => {
-      addBox(plane, lbl.x, lbl.y, lbl.w, lbl.h, 30,
+      const lb = addBox(plane, lbl.x, lbl.y, lbl.w, lbl.h, 30,
         `background:${lbl.fill};opacity:.45;border:1px solid ${lbl.border}`,
-        `background:${lbl.fill};border:1.5px solid ${lbl.border};color:${lbl.color || '#2d3748'};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;white-space:pre-line;text-align:center;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18)`,
-        esc(lbl.text),
-        lbl.r);
+        `background:${lbl.fill};border:1.5px solid ${lbl.border};border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.18)`,
+        '', lbl.r);
+      addBillboard(lb, 44, esc(String(lbl.text || '').replace(/\s+/g, '')),
+        `background:${lbl.border};color:#fff;font-size:9px;font-weight:700;line-height:1.3;padding:1px 5px;border-radius:8px;pointer-events:none`, lbl.r);
     });
 
     // 房間色塊
@@ -3489,11 +3644,26 @@ function buildAllFloorsView() {
       const occ = room.beds.filter(b => b !== null).length;
       // 房間立體量體：彩色玻璃牆向上延伸，頂面顯示房號與入住數（清晰可讀）
       const RH = 30;
-      addBox(plane, pos.x, pos.y, pos.w, pos.h, RH,
+      // 床位方塊：每張床一格，有人住依性別上色（男藍／女粉），空床為虛線白格
+      const beds = room.beds.map(pid => {
+        const p = pid !== null ? state.persons.find(x => x.id === pid) : null;
+        return p
+          ? `<i style="display:block;width:8px;height:8px;border-radius:2px;background:${p.gender === 'F' ? '#d53f8c' : '#3182ce'};box-shadow:0 2px 0 ${p.gender === 'F' ? '#97266d' : '#1e4e8c'}"></i>`
+          : `<i style="display:block;width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,.75);border:1px dashed #a0aec0;box-sizing:border-box"></i>`;
+      }).join('');
+      const rb = addBox(plane, pos.x, pos.y, pos.w, pos.h, RH,
         `background:${bg};opacity:.45;border:1px solid ${border}`,
-        `background:${bg};border:1.5px solid ${border};border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#2d3748;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18)`,
-        `<div>${esc(room.number)}</div><div style="font-size:8px;font-weight:600;color:#4a5568">${occ}/${room.beds.length}</div>`,
-        pos.r);
+        `background:${bg};border:1.5px solid ${border};border-radius:3px;display:flex;flex-wrap:wrap;gap:2px;align-items:center;align-content:center;justify-content:center;padding:2px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18);pointer-events:auto;cursor:pointer`,
+        beds, pos.r);
+      const openRoom = (e) => { e.stopPropagation(); if (window._afDragged) return; _afShowRoom(fl, roomId); };
+      rb._top.dataset.roomKey = fl + ':' + roomId;
+      rb._top.title = `${fl} ${room.number}（${occ}/${room.beds.length}）點擊查看`;
+      rb._top.onclick = openRoom;
+      // 房號標籤：永遠面向鏡頭
+      const pill = addBillboard(rb, RH + 15,
+        `${esc(room.number)} <span style="opacity:.7;font-weight:600">${occ}/${room.beds.length}</span>`,
+        PILL + ';pointer-events:auto;cursor:pointer', pos.r);
+      pill.onclick = openRoom;
     });
 
     // 6F 平面加上四角虛線投影（向下連至 5F）
@@ -3513,10 +3683,12 @@ function buildAllFloorsView() {
         [89.8, 65.8, 7, 7.5, 0],   // 右側樓梯（右翼末端）
         [44.8, 42, 10.5, 6.5, -38],   // 中間樓梯（僅此一座，斜向樓梯間）
       ].forEach(([x, y, w, h, r]) => {
-        addBox(plane, x, y, w, h, GAP * 2,
+        const sb = addBox(plane, x, y, w, h, GAP * 2,
           'background:repeating-linear-gradient(180deg,rgba(237,137,54,.5) 0 8px,rgba(237,137,54,.2) 8px 16px);border:1px solid rgba(221,107,32,.6)',
-          'background:rgba(237,137,54,.8);border:1.5px solid #c05621;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;text-shadow:0 1px 2px rgba(0,0,0,.3)',
-          '樓梯', r);
+          'background:rgba(237,137,54,.8);border:1.5px solid #c05621;border-radius:3px',
+          '', r);
+        addBillboard(sb, GAP * 2 + 14, '樓梯',
+          'background:#c05621;color:#fff;font-size:10px;font-weight:800;line-height:1.3;padding:1px 6px;border-radius:8px;pointer-events:none', r);
       });
     }
     scene.appendChild(plane);
@@ -3542,12 +3714,31 @@ function buildAllFloorsView() {
     stage.appendChild(tag);
   });
 
-  // ── 自動縮放以符合單頁視窗 ──
-  requestAnimationFrame(() => {
+  // ── 圖例 ──
+  const legend = document.createElement('div');
+  legend.style.cssText = 'position:absolute;left:18px;bottom:14px;z-index:5;background:rgba(255,255,255,.92);border-radius:8px;padding:7px 11px;font-size:11px;color:#4a5568;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;gap:12px;align-items:center;pointer-events:none';
+  legend.innerHTML = `<b>床位</b>
+    <span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:9px;height:9px;border-radius:2px;background:#3182ce"></i>男</span>
+    <span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:9px;height:9px;border-radius:2px;background:#d53f8c"></i>女</span>
+    <span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:9px;height:9px;border-radius:2px;border:1px dashed #a0aec0;box-sizing:border-box"></i>空床</span>`;
+  stage.appendChild(legend);
+
+  // ── 房間資訊面板（點房間後顯示）──
+  const panel = document.createElement('div');
+  panel.id = 'af-panel';
+  panel.style.cssText = 'display:none;position:absolute;right:16px;top:16px;width:290px;max-width:calc(100% - 32px);max-height:calc(100% - 32px);overflow-y:auto;z-index:6;background:white;border-radius:10px;padding:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);cursor:default';
+  panel.onpointerdown = (e) => e.stopPropagation();
+  panel.onwheel = (e) => e.stopPropagation();
+  stage.appendChild(panel);
+  if (window._afSel) _afShowRoom(window._afSel.fl, window._afSel.roomId);
+
+  // ── 自動縮放以符合單頁視窗（保留視角重建時略過）──
+  if (!prevRot) requestAnimationFrame(() => {
     const sr = stage.getBoundingClientRect();
     const cr = scene.getBoundingClientRect();
     if (cr.height > 0) {
       _afRot.s = Math.min(1.15, (sr.height * 0.82) / cr.height, (sr.width * 0.78) / cr.width);
+      window._afFitS = _afRot.s;
       _afApply();
     }
   });
