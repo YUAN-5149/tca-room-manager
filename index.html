@@ -483,7 +483,8 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
         <input type="date" id="filter-date" oninput="renderScheduleSidebar()">
         <button class="btn btn-sm btn-cancel" style="width:100%" onclick="document.getElementById('filter-date').value='';renderScheduleSidebar()">清除</button>
       </div>
-      <button class="btn btn-sm btn-warning" style="width:100%;margin-bottom:8px" onclick="openBatchScheduleModal()">⚙️ 批次調整排程日期</button>
+      <button class="btn btn-sm btn-warning" style="width:100%;margin-bottom:6px" onclick="openBatchScheduleModal()">⚙️ 批次調整排程日期</button>
+      <button class="btn btn-sm" style="width:100%;margin-bottom:8px;background:#e6fffa;color:#234e52;border:1px solid #81e6d9" onclick="openSchedCheck()">🩺 排程健檢（重複／不一致）</button>
       <div id="schedule-list"></div>
     </div>
 
@@ -962,6 +963,21 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
     <div class="modal-actions">
       <button class="btn btn-cancel" onclick="closeModal('batchSchedule')">取消</button>
       <button class="btn btn-warning" onclick="batchUpdateSchedule()">批次更新</button>
+    </div>
+  </div>
+</div>
+
+<!-- 排程健檢 Modal -->
+<div class="modal-overlay" id="modal-schedCheck">
+  <div class="modal" style="width:600px;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0">
+      <h3 style="margin:0">🩺 排程健檢</h3>
+      <button onclick="closeModal('schedCheck')" title="關閉" style="background:none;border:none;cursor:pointer;font-size:20px;color:#a0aec0;line-height:1;padding:0 2px">✕</button>
+    </div>
+    <div style="font-size:11px;color:#718096;margin-bottom:10px;flex-shrink:0">檢查全部樓層的住宿排程與床位配置是否一致。所有修正只動「排程」，不會把任何人移出床位；修正後需按「發佈同步」才會更新到其他裝置。</div>
+    <div id="sc-body" style="flex:1;overflow-y:auto;min-height:80px;padding-right:2px"></div>
+    <div class="modal-actions" style="flex-shrink:0;margin-top:10px">
+      <button class="btn btn-cancel" onclick="closeModal('schedCheck')">關閉</button>
     </div>
   </div>
 </div>
@@ -2008,6 +2024,163 @@ function renderScheduleSidebar() {
       <button class="btn btn-danger btn-sm" onclick="removeSchedule(${s.id})">✕</button>
     </div>`;
   }).join('');
+}
+
+// ─── 排程健檢：重複、孤兒、與床位不一致 ─────────────
+// 分析結果只描述問題，不修改資料
+function _scAnalyze() {
+  const today = new Date().toISOString().slice(0, 10);
+  const personById = new Map(state.persons.map(p => [p.id, p]));
+  const roomOf = s => state.floors[s.floor]?.rooms[s.roomId];
+  const res = { today, dups: [], orphans: [], ghosts: [], uncovered: [] };
+
+  // 1) 孤兒排程：人員或房間已不存在
+  const valid = [];
+  state.schedules.forEach(s => {
+    if (!personById.has(s.personId) || !roomOf(s)) res.orphans.push(s); else valid.push(s);
+  });
+
+  // 2) 重複排程：同一人、同一房，日期重疊或相接的多筆 → 可合併為一筆
+  const groups = new Map();
+  valid.forEach(s => {
+    const k = s.personId + '|' + s.floor + '|' + s.roomId;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(s);
+  });
+  groups.forEach(list => {
+    list.sort((a, b) => String(a.checkIn).localeCompare(String(b.checkIn)));
+    let cluster = [list[0]], end = list[0].checkOut;
+    const flush = () => {
+      if (cluster.length > 1) {
+        const p = personById.get(cluster[0].personId);
+        // 保留床位與目前實際床位相符的那筆，否則保留第一筆
+        const keep = cluster.find(s => p.assignedRoom === s.roomId && p.assignedFloor === s.floor && p.assignedBed === s.bedIdx) || cluster[0];
+        res.dups.push({
+          person: p, floor: keep.floor, roomId: keep.roomId, keep,
+          remove: cluster.filter(s => s !== keep),
+          checkIn: cluster.reduce((m, s) => s.checkIn < m ? s.checkIn : m, cluster[0].checkIn),
+          checkOut: cluster.reduce((m, s) => s.checkOut > m ? s.checkOut : m, cluster[0].checkOut),
+        });
+      }
+    };
+    for (let i = 1; i < list.length; i++) {
+      const s = list[i];
+      if (s.checkIn <= end) { cluster.push(s); if (s.checkOut > end) end = s.checkOut; }
+      else { flush(); cluster = [s]; end = s.checkOut; }
+    }
+    flush();
+  });
+
+  // 3) 今日有排程，但此人目前不在該房床位上
+  valid.forEach(s => {
+    if (!(s.checkIn <= today && s.checkOut >= today)) return;
+    const p = personById.get(s.personId);
+    if (p.assignedRoom !== s.roomId || p.assignedFloor !== s.floor) res.ghosts.push({ s, person: p });
+  });
+
+  // 4) 目前在床位上，但今日沒有涵蓋的排程（過期或從未建立）
+  state.persons.forEach(p => {
+    if (!p.assignedRoom) return;
+    const mine = valid.filter(s => s.personId === p.id && s.floor === p.assignedFloor && s.roomId === p.assignedRoom);
+    if (mine.some(s => s.checkIn <= today && s.checkOut >= today)) return;
+    const last = mine.reduce((m, s) => (!m || s.checkOut > m.checkOut) ? s : m, null);
+    res.uncovered.push({ person: p, last });
+  });
+  return res;
+}
+
+function openSchedCheck() {
+  document.getElementById('modal-schedCheck').classList.add('show');
+  renderSchedCheck();
+}
+
+function renderSchedCheck() {
+  const r = _scAnalyze();
+  window._scResult = r;
+  const el = document.getElementById('sc-body');
+  const total = r.dups.length + r.orphans.length + r.ghosts.length + r.uncovered.length;
+  if (!total) {
+    el.innerHTML = `<div style="text-align:center;padding:30px 0;color:#276749"><div style="font-size:40px">✅</div><div style="font-size:15px;font-weight:700;margin-top:6px">排程資料一切正常</div><div style="font-size:11px;color:#718096;margin-top:4px">共檢查 ${state.schedules.length} 筆排程、${state.persons.filter(p => p.assignedRoom).length} 位在住人員</div></div>`;
+    return;
+  }
+  const sec = (title, n, desc, action, rows) => `
+    <div style="border:1px solid ${n ? '#fbd38d' : '#c6f6d5'};background:${n ? '#fffaf0' : '#f0fff4'};border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:${n ? '#744210' : '#276749'}">${n ? '⚠️' : '✅'} ${title}：${n} ${n ? '' : '（正常）'}</div>
+        ${n ? action : ''}
+      </div>
+      <div style="font-size:11px;color:#718096;margin-top:3px">${desc}</div>
+      ${n ? `<div style="max-height:150px;overflow-y:auto;margin-top:7px;font-size:11px;background:white;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px">${rows}</div>` : ''}
+    </div>`;
+  const row = t => `<div style="padding:3px 0;border-bottom:1px solid #edf2f7">${t}</div>`;
+  const nm = p => esc(p ? p.name : '(已刪除)');
+
+  el.innerHTML =
+    sec('重複排程', r.dups.length,
+      '同一人在同一房間有多筆日期重疊的排程。合併後保留一筆，日期取涵蓋最廣的範圍。',
+      `<button class="btn btn-success btn-sm" onclick="scMergeDups()">合併 ${r.dups.reduce((n, g) => n + g.remove.length, 0)} 筆重複</button>`,
+      r.dups.map(g => row(`<b>${nm(g.person)}</b>　${esc(g.floor)} ${esc(g.roomId)}　共 ${g.remove.length + 1} 筆 → 合併為 ${esc(g.checkIn)} ~ ${esc(g.checkOut)}`)).join('')) +
+    sec('在床位上但今日無排程', r.uncovered.length,
+      '人員目前排在床位上，但沒有涵蓋今天的排程（已過期或從未建立）。日期檢視與匯出的退房日會因此不準。',
+      `<span style="display:flex;gap:5px;align-items:center;flex-shrink:0"><input type="date" id="sc-extend-date" value="${_scDefaultExtend()}" style="padding:3px 5px;border:1px solid #cbd5e0;border-radius:5px;font-size:11px;font-family:inherit"><button class="btn btn-success btn-sm" onclick="scExtendUncovered()">延長至此日</button></span>`,
+      r.uncovered.map(u => row(`<b>${nm(u.person)}</b>　${esc(u.person.assignedFloor)} ${esc(u.person.assignedRoom)}　${u.last ? '排程已於 ' + esc(u.last.checkOut) + ' 到期' : '<span style="color:#c53030">從未建立排程</span>'}`)).join('')) +
+    sec('今日有排程但人不在該床位', r.ghosts.length,
+      '排程涵蓋今天，但此人目前沒有排在該房間（可能已換房或移出後排程未刪）。',
+      `<button class="btn btn-danger btn-sm" onclick="scDeleteGhosts()">刪除這 ${r.ghosts.length} 筆排程</button>`,
+      r.ghosts.map(g => row(`<b>${nm(g.person)}</b>　排程：${esc(g.s.floor)} ${esc(g.s.roomId)}（${esc(g.s.checkIn)} ~ ${esc(g.s.checkOut)}）　目前：${g.person.assignedRoom ? esc(g.person.assignedFloor) + ' ' + esc(g.person.assignedRoom) : '未分配'}`)).join('')) +
+    sec('孤兒排程', r.orphans.length,
+      '排程對應的人員或房間已被刪除，屬於殘留資料。',
+      `<button class="btn btn-danger btn-sm" onclick="scDeleteOrphans()">刪除這 ${r.orphans.length} 筆</button>`,
+      r.orphans.map(s => row(`${esc(s.floor)} ${esc(s.roomId)}（${esc(s.checkIn)} ~ ${esc(s.checkOut)}）　${state.persons.some(p => p.id === s.personId) ? '房間已不存在' : '人員已不存在'}`)).join(''));
+}
+
+// 延長日期預設值：現有排程中最晚的退房日；若已過期則為 30 天後
+function _scDefaultExtend() {
+  const today = new Date().toISOString().slice(0, 10);
+  const max = state.schedules.reduce((m, s) => s.checkOut > m ? s.checkOut : m, '');
+  return max > today ? max : new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+}
+function _scAfterFix(msg) {
+  saveState(); renderAll();
+  if (selectedRoom && state.floors[currentFloor]?.rooms[selectedRoom]) renderRoomDetail(selectedRoom);
+  renderSchedCheck();
+  toast(msg + '（記得按「發佈同步」）');
+}
+function scMergeDups() {
+  const r = _scAnalyze();
+  const n = r.dups.reduce((k, g) => k + g.remove.length, 0);
+  if (!n || !confirm(`將 ${r.dups.length} 組重複排程各合併為一筆，共移除 ${n} 筆多餘排程。\n不會影響任何人的床位。確定執行？`)) return;
+  const drop = new Set();
+  r.dups.forEach(g => { g.keep.checkIn = g.checkIn; g.keep.checkOut = g.checkOut; g.remove.forEach(s => drop.add(s)); });
+  state.schedules = state.schedules.filter(s => !drop.has(s));
+  _scAfterFix(`已合併，移除 ${n} 筆重複排程`);
+}
+function scExtendUncovered() {
+  const date = document.getElementById('sc-extend-date').value;
+  const r = _scAnalyze();
+  if (!date || date < r.today) { toast('請選擇今天或之後的日期', 'err'); return; }
+  if (!r.uncovered.length || !confirm(`將 ${r.uncovered.length} 位在住人員的排程延長（或補建）至 ${date}。確定執行？`)) return;
+  let seq = 0;
+  r.uncovered.forEach(u => {
+    const p = u.person;
+    if (u.last) u.last.checkOut = date;
+    else state.schedules.push({ id: Date.now() + (seq++), personId: p.id, floor: p.assignedFloor, roomId: p.assignedRoom, bedIdx: p.assignedBed, checkIn: r.today, checkOut: date, note: '排程健檢補建' });
+  });
+  _scAfterFix(`已更新 ${r.uncovered.length} 位人員的排程至 ${date}`);
+}
+function scDeleteGhosts() {
+  const r = _scAnalyze();
+  if (!r.ghosts.length || !confirm(`刪除 ${r.ghosts.length} 筆「人已不在該床位」的排程。\n只刪排程，不影響這些人目前的床位。確定執行？`)) return;
+  const drop = new Set(r.ghosts.map(g => g.s));
+  state.schedules = state.schedules.filter(s => !drop.has(s));
+  _scAfterFix(`已刪除 ${drop.size} 筆排程`);
+}
+function scDeleteOrphans() {
+  const r = _scAnalyze();
+  if (!r.orphans.length || !confirm(`刪除 ${r.orphans.length} 筆孤兒排程（人員或房間已不存在）。確定執行？`)) return;
+  const drop = new Set(r.orphans);
+  state.schedules = state.schedules.filter(s => !drop.has(s));
+  _scAfterFix(`已刪除 ${drop.size} 筆孤兒排程`);
 }
 
 // ─── 批次調整排程日期 ─────────────────────────────
