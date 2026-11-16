@@ -712,7 +712,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       </select>
     </label>
     <label id="af-sep-box" style="display:flex;align-items:center;gap:6px;font-weight:600">↕ 樓層分離
-      <input type="range" id="af-sep" min="0" max="320" step="10" value="0" oninput="_afSetSep(+this.value)" style="width:110px;cursor:pointer">
+      <input type="range" id="af-sep" min="0" max="320" step="10" value="200" oninput="_afSetSep(+this.value)" style="width:110px;cursor:pointer">
     </label>
     <span style="position:relative;display:flex;align-items:center;gap:4px">
       <input id="af-find" placeholder="🔍 找人：輸入姓名" autocomplete="off" oninput="_afFindInput(this.value)" onkeydown="if(event.key==='Enter')_afFindPick(0);if(event.key==='Escape'){this.blur();_afFindClear()}" style="width:150px;padding:4px 8px;border:1px solid #a0aec0;border-radius:5px;font-size:13px;font-family:inherit">
@@ -3747,7 +3747,7 @@ function openAllFloorsView() {
   window._afFind = null;
   window._afSceneTop = null;
   window._afRefit = false;
-  window._afOpt = { color: 'status', dateMode: false, date: new Date().toISOString().slice(0, 10), floors: 'all', sep: 0 };
+  window._afOpt = { color: 'status', dateMode: false, date: new Date().toISOString().slice(0, 10), floors: 'all', sep: 200 };
   document.getElementById('af-find').value = '';
   document.getElementById('af-find-list').style.display = 'none';
   document.getElementById('af-find-clear').style.display = 'none';
@@ -4148,7 +4148,9 @@ function buildAllFloorsView(keepView) {
   const refit = !prevRot || window._afRefit;
   window._afRefit = false;
   scene.style.top = window._afSceneTop || '55%';
-  if (refit) requestAnimationFrame(() => {
+  // 以動畫影格或逾時先到者觸發：視窗在背景時瀏覽器會暫停動畫影格
+  const onceReady = fn => { let done = false; const go = () => { if (!done) { done = true; fn(); } }; requestAnimationFrame(go); setTimeout(go, 150); };
+  if (refit) onceReady(() => {
     const sr = stage.getBoundingClientRect();
     if (sr.width < 50 || sr.height < 50) { window._afRefit = true; return; }   // 畫面尚未就緒，留待下次重建再縮放
     // 以所有樓板與屋頂在畫面上的外框聯集估算建物範圍
