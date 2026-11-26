@@ -390,6 +390,14 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   .bed-grid{grid-template-columns:1fr 1fr}
   .map-area{padding:4px}
 }
+/* 返回訓練管理整合平台 */
+.tfd-back{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+  padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.35);color:#fff;text-decoration:none;
+  font-size:12px;font-weight:700;white-space:nowrap;transition:background .2s}
+.tfd-back:hover{background:rgba(255,255,255,.28)}
+@media (max-width:480px){.tfd-back{padding:5px 9px}.tfd-back .tfd-back-text{display:none}}
+@media print{.tfd-back{display:none}}
 </style>
 </head>
 <body>
@@ -397,6 +405,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 <!-- Header -->
 <div class="header">
   <div style="display:flex;align-items:center;gap:10px">
+    <a class="tfd-back" href="https://tfd-train.github.io/Training-Management-Platform/" title="返回訓練管理整合平台">⌂<span class="tfd-back-text"> 返回平台</span></a>
     <span style="font-size:20px">🏨</span>
     <div>
       <h1>訓練中心住宿管理系統</h1>
