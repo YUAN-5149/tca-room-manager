@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 原始測試集合
+    match /wordcloud_words/{document} {
+      allow read, write: if true;
+    }
+
+    // 火警系統互動簡報
+    match /fire_alarm_wordcloud/{document} {
+      allow read, write: if true;
+    }
+    match /fire_alarm_poll/{document} {
+      allow read, write: if true;
+    }
+
+    // ═══ 訓練中心住宿管理系統（tca_*）═══
+    // 管理端須以 Firebase Authentication 管理帳號登入才能讀取／修改／刪除；
+    // 學員掃 QR 的自助登記與修繕回饋頁不需登入，但只能「新增」，看不到任何資料。
+    function isTcaAdmin() {
+      return request.auth != null && request.auth.token.email == 'tca-room@example.com';
+    }
+
+    // 共享佈局（含人員名冊）：僅管理帳號可讀寫；固定文件 id=shared，寫入須符合結構，禁止刪除
+    match /tca_layout_poll/{docId} {
+      allow read: if isTcaAdmin();
+      allow write: if isTcaAdmin()
+                   && docId == 'shared'
+                   && request.resource.data.updatedAt is number
+                   && request.resource.data.persons is list
+                   && request.resource.data.schedules is list
+                   && request.resource.data.floors is map;
+      allow delete: if false;
+    }
+
+    // 住宿自助登記：任何人僅可新增（欄位白名單 + 長度上限）；讀取與刪除限管理帳號；禁止竄改
+    match /tca_reg_poll/{docId} {
+      allow read, delete: if isTcaAdmin();
+      allow create: if request.resource.data.keys().hasOnly(
+                         ['projectId','projectName','name','dept','title','gender','phone','note','ts'])
+                    && request.resource.data.name is string && request.resource.data.name.size() <= 100
+                    && request.resource.data.phone is string && request.resource.data.phone.size() <= 50
+                    && (!('dept' in request.resource.data) || (request.resource.data.dept is string && request.resource.data.dept.size() <= 200))
+                    && (!('title' in request.resource.data) || (request.resource.data.title is string && request.resource.data.title.size() <= 200))
+                    && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 1000))
+                    && (!('projectName' in request.resource.data) || (request.resource.data.projectName is string && request.resource.data.projectName.size() <= 200));
+      allow update: if false;
+    }
+
+    // 修繕留言板：任何人僅可新增（欄位白名單 + 長度上限）；讀取、更新狀態、刪除限管理帳號
+    match /tca_maint_poll/{docId} {
+      allow read, delete: if isTcaAdmin();
+      allow create: if isTcaAdmin() || (
+                       request.resource.data.keys().hasOnly(
+                         ['floor','room','issue','priority','status','name','phone','note','type','ts','createdAt','updatedAt'])
+                    && request.resource.data.issue is string
+                    && request.resource.data.issue.size() > 0
+                    && request.resource.data.issue.size() <= 2000
+                    && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 100))
+                    && (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() <= 50))
+                    && (!('room' in request.resource.data) || (request.resource.data.room is string && request.resource.data.room.size() <= 50)));
+      allow update: if isTcaAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+                    && request.resource.data.status in ['pending','in_progress','done'];
+    }
+
+    // html-slide-builder 簡報互動集合（格式：<slug>_wordcloud / <slug>_poll）
+    // 排除 tca_* — 住宿系統集合由上方專屬規則管控
+    match /{collection}/{document} {
+      allow read, write: if (collection.matches('.*_wordcloud') || collection.matches('.*_poll'))
+                         && !collection.matches('tca_.*');
+    }
+
+    // 其他集合預設禁止存取
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

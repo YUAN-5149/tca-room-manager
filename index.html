@@ -460,30 +460,40 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 </div>
 <script>
 (function(){
-  // 密碼只存 SHA-256 雜湊值；通過後記在本次分頁，重新整理不必再輸入，關閉後重開需再登入
-  var HASH='26cf2694d4491516004b9bc45b193aed9eed19b09e038034ab19be2c39a9647b', KEY='tfdRoomAuth';
+  // 密碼由 Firebase Authentication 在伺服器端驗證（原始碼不含密碼）；
+  // 登入狀態只保留在本次分頁，關閉後重開需再登入。
   var q=new URLSearchParams(location.search), gate=document.getElementById('login-gate');
-  var ok=false; try{ok=sessionStorage.getItem(KEY)===HASH;}catch(e){}
-  if(q.has('reg')||q.has('maint')||ok){gate.classList.add('hide');return;}
-  setTimeout(function(){var i=document.getElementById('login-pwd'); if(i) i.focus();},50);
-  async function sha256(t){
-    var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));
-    return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  if(q.has('reg')||q.has('maint')){gate.classList.add('hide');return;}
+  var inp=document.getElementById('login-pwd'), err=document.getElementById('login-err'),
+      btn=gate.querySelector('.lg-btn'), card=gate.querySelector('.lg-card');
+  function showErr(msg){
+    err.textContent='⚠️ '+msg; err.classList.add('show'); inp.classList.add('err');
+    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    inp.value=''; inp.focus();
   }
-  window.submitLogin=async function(){
-    var inp=document.getElementById('login-pwd'), err=document.getElementById('login-err'), card=gate.querySelector('.lg-card');
-    if((await sha256(inp.value.trim()))===HASH){
-      try{sessionStorage.setItem(KEY,HASH);}catch(e){}
-      gate.classList.add('hide');
-    }else{
-      err.classList.add('show'); inp.classList.add('err');
-      card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
-      inp.value=''; inp.focus();
-    }
+  // 雲端模組載入並確認登入狀態前，先停用按鈕
+  btn.disabled=true; btn.textContent='連線中…';
+  window.onAuthReady=function(signedIn){
+    if(signedIn){gate.classList.add('hide');return;}
+    btn.disabled=false; btn.textContent='登入'; setTimeout(function(){inp.focus();},50);
   };
-  document.getElementById('login-pwd').addEventListener('input',function(){
-    this.classList.remove('err'); document.getElementById('login-err').classList.remove('show');
-  });
+  window.onAuthLost=function(){ gate.classList.remove('hide'); btn.disabled=false; btn.textContent='登入'; };
+  window.submitLogin=async function(){
+    var pwd=inp.value.trim();
+    if(!pwd){showErr('請輸入密碼');return;}
+    if(!window.fbLogin){showErr('雲端連線中，請稍候再試');return;}
+    btn.disabled=true; btn.textContent='驗證中…';
+    try{ await window.fbLogin(pwd); gate.classList.add('hide'); }
+    catch(e){
+      var c=(e&&e.code)||'';
+      if(/invalid-credential|wrong-password|user-not-found|invalid-login/.test(c)) showErr('密碼錯誤，請重新輸入');
+      else if(/too-many-requests/.test(c)) showErr('嘗試次數過多，請稍後再試');
+      else if(/network/.test(c)) showErr('網路連線失敗，請檢查網路');
+      else showErr('登入失敗（'+(c||e)+'）');
+    }
+    finally{ btn.disabled=false; btn.textContent='登入'; }
+  };
+  inp.addEventListener('input',function(){ inp.classList.remove('err'); err.classList.remove('show'); });
 })();
 </script>
 
@@ -4702,6 +4712,9 @@ document.addEventListener('DOMContentLoaded', () => {
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+// 管理帳號（Firebase Authentication）。Firestore 規則只允許此帳號讀取住宿資料
+const ADMIN_EMAIL = 'tca-room@example.com';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBvOGLCl80jWJ7LzubbrJpVf7c9_nmNbv4",
@@ -4715,41 +4728,53 @@ const firebaseConfig = {
 try {
   const app = initializeApp(firebaseConfig);
   const fdb = getFirestore(app);
-  // 集合名以 _poll 結尾 → 符合現有 Firestore 規則允許讀寫
+  const auth = getAuth(app);
+  const qs = new URLSearchParams(location.search);
+  const publicMode = qs.has('reg') || qs.has('maint');   // 學員掃 QR 的公開頁
+
   const layoutRef = doc(fdb, 'tca_layout_poll', 'shared');
-
-  // 提供發佈函式給主程式
-  window.fbPublishLayout = (data) => setDoc(layoutRef, data);
-  // 一次性讀取雲端佈局（發佈前衝突檢查用）
-  window.fbGetLayout = () => getDoc(layoutRef).then(s => s.exists() ? s.data() : null);
-
-  // 即時監聽：任何人發佈後，所有開啟的頁面自動套用
-  onSnapshot(layoutRef, (snap) => {
-    if (snap.exists() && typeof window.applyRemoteLayout === 'function') {
-      window.applyRemoteLayout(snap.data());
-    }
-  }, (err) => console.warn('[layout-sync] 監聽錯誤:', err));
-
-  // ── 自助登記集合（住宿者掃 QR 提交） ──
   const regCol = collection(fdb, 'tca_reg_poll');
-  window.fbAddRegistration = (data) => addDoc(regCol, data);
-  window.fbDeleteRegistration = (docId) => deleteDoc(doc(fdb, 'tca_reg_poll', docId));
-  window.fbWatchRegistrations = (cb) => onSnapshot(regCol, (snap) => {
-    const arr = []; snap.forEach(d => arr.push({ _id: d.id, ...d.data() })); cb(arr);
-  }, (err) => console.warn('[reg-sync] 監聽錯誤:', err));
-
-  // ── 修繕留言板集合（住宿者掃修繕 QR 提交） ──
   const maintCol = collection(fdb, 'tca_maint_poll');
-  window.fbAddMaintLog    = (data)          => addDoc(maintCol, data);
-  window.fbDeleteMaintLog = (docId)         => deleteDoc(doc(fdb, 'tca_maint_poll', docId));
-  window.fbUpdateMaintLog = (docId, data)   => setDoc(doc(fdb, 'tca_maint_poll', docId), data, { merge: true });
-  window.fbWatchMaintLogs = (cb) => onSnapshot(maintCol, (snap) => {
-    const arr = []; snap.forEach(d => arr.push({ _id: d.id, ...d.data() })); cb(arr);
-  }, (err) => console.warn('[maint-sync] 監聽錯誤:', err));
 
-  // 通知主程式雲端已就緒
-  if (typeof window.onLayoutCloudReady === 'function') window.onLayoutCloudReady();
-  if (typeof window.onRegCloudReady === 'function') window.onRegCloudReady();
+  // ── 公開頁也需要：學員只能「新增」登記與修繕回饋 ──
+  window.fbAddRegistration = (data) => addDoc(regCol, data);
+  window.fbAddMaintLog     = (data) => addDoc(maintCol, data);
+
+  // ── 管理端：登入成功後才掛上讀寫與即時監聽 ──
+  let started = false;
+  function startAdmin() {
+    if (started) return; started = true;
+    window.fbPublishLayout = (data) => setDoc(layoutRef, data);
+    window.fbGetLayout = () => getDoc(layoutRef).then(s => s.exists() ? s.data() : null);
+    onSnapshot(layoutRef, (snap) => {
+      if (snap.exists() && typeof window.applyRemoteLayout === 'function') window.applyRemoteLayout(snap.data());
+    }, (err) => console.warn('[layout-sync] 監聽錯誤:', err));
+    window.fbDeleteRegistration = (docId) => deleteDoc(doc(fdb, 'tca_reg_poll', docId));
+    window.fbWatchRegistrations = (cb) => onSnapshot(regCol, (snap) => {
+      const arr = []; snap.forEach(d => arr.push({ _id: d.id, ...d.data() })); cb(arr);
+    }, (err) => console.warn('[reg-sync] 監聽錯誤:', err));
+    window.fbDeleteMaintLog = (docId)       => deleteDoc(doc(fdb, 'tca_maint_poll', docId));
+    window.fbUpdateMaintLog = (docId, data) => setDoc(doc(fdb, 'tca_maint_poll', docId), data, { merge: true });
+    window.fbWatchMaintLogs = (cb) => onSnapshot(maintCol, (snap) => {
+      const arr = []; snap.forEach(d => arr.push({ _id: d.id, ...d.data() })); cb(arr);
+    }, (err) => console.warn('[maint-sync] 監聽錯誤:', err));
+    if (typeof window.onLayoutCloudReady === 'function') window.onLayoutCloudReady();
+    if (typeof window.onRegCloudReady === 'function') window.onRegCloudReady();
+  }
+
+  if (!publicMode) {
+    window.fbLogin = async (pwd) => {
+      await setPersistence(auth, browserSessionPersistence);
+      await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pwd);
+    };
+    let first = true;
+    onAuthStateChanged(auth, (user) => {
+      const ok = !!(user && user.email === ADMIN_EMAIL);
+      if (ok) startAdmin();
+      if (first) { first = false; if (typeof window.onAuthReady === 'function') window.onAuthReady(ok); }
+      else if (!ok && started) location.reload();   // 登入失效：重新載入回到登入畫面
+    });
+  }
   console.log('[layout-sync] Firebase 已連線');
 } catch (e) {
   console.error('[layout-sync] Firebase 初始化失敗:', e);
