@@ -426,6 +426,67 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 </head>
 <body>
 
+<!-- ═══ 登入畫面（掃 QR 的自助登記／修繕回饋頁不需登入） ═══ -->
+<style>
+#login-gate{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:linear-gradient(135deg,#1a365d,#2b6cb0)}
+#login-gate.hide{display:none}
+#login-gate .lg-card{width:100%;max-width:360px;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 12px 40px rgba(0,0,0,.3);text-align:center}
+#login-gate .lg-icon{width:64px;height:64px;margin:0 auto 12px;border-radius:14px;display:block}
+#login-gate h2{font-size:19px;color:#1a365d;margin-bottom:4px}
+#login-gate .lg-sub{font-size:12px;color:#718096;margin-bottom:18px}
+#login-gate input{width:100%;padding:11px 12px;border:1.5px solid #cbd5e0;border-radius:8px;font-size:16px;font-family:inherit;outline:none;transition:.15s}
+#login-gate input:focus{border-color:#3182ce;box-shadow:0 0 0 3px rgba(49,130,206,.18)}
+#login-gate input.err{border-color:#e53e3e;box-shadow:0 0 0 3px rgba(229,62,62,.15)}
+#login-gate .lg-err{display:none;margin-top:8px;font-size:13px;color:#c53030;font-weight:600}
+#login-gate .lg-err.show{display:block}
+#login-gate .lg-btn{width:100%;margin-top:14px;padding:11px;border:none;border-radius:8px;background:#2b6cb0;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+#login-gate .lg-btn:hover{background:#2c5282}
+#login-gate .lg-back{display:inline-block;margin-top:16px;font-size:12px;color:#4a5568;text-decoration:none}
+#login-gate .lg-back:hover{color:#2b6cb0}
+@keyframes lgShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+#login-gate .lg-card.shake{animation:lgShake .4s}
+</style>
+<div id="login-gate">
+  <form class="lg-card" onsubmit="event.preventDefault();submitLogin()">
+    <img class="lg-icon" src="favicon-192.png" alt="">
+    <h2>訓練中心住宿管理系統</h2>
+    <div class="lg-sub">請輸入登入密碼</div>
+    <input type="password" id="login-pwd" autocomplete="current-password" placeholder="登入密碼" aria-label="登入密碼">
+    <div class="lg-err" id="login-err">⚠️ 密碼錯誤，請重新輸入</div>
+    <button type="submit" class="lg-btn">登入</button>
+    <a class="lg-back" href="https://tfd-train.github.io/Training-Management-Platform/">⌂ 返回訓練管理整合平台</a>
+  </form>
+</div>
+<script>
+(function(){
+  // 密碼只存 SHA-256 雜湊值；通過後記在本次分頁，重新整理不必再輸入，關閉後重開需再登入
+  var HASH='26cf2694d4491516004b9bc45b193aed9eed19b09e038034ab19be2c39a9647b', KEY='tfdRoomAuth';
+  var q=new URLSearchParams(location.search), gate=document.getElementById('login-gate');
+  var ok=false; try{ok=sessionStorage.getItem(KEY)===HASH;}catch(e){}
+  if(q.has('reg')||q.has('maint')||ok){gate.classList.add('hide');return;}
+  setTimeout(function(){var i=document.getElementById('login-pwd'); if(i) i.focus();},50);
+  async function sha256(t){
+    var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));
+    return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  }
+  window.submitLogin=async function(){
+    var inp=document.getElementById('login-pwd'), err=document.getElementById('login-err'), card=gate.querySelector('.lg-card');
+    if((await sha256(inp.value.trim()))===HASH){
+      try{sessionStorage.setItem(KEY,HASH);}catch(e){}
+      gate.classList.add('hide');
+    }else{
+      err.classList.add('show'); inp.classList.add('err');
+      card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+      inp.value=''; inp.focus();
+    }
+  };
+  document.getElementById('login-pwd').addEventListener('input',function(){
+    this.classList.remove('err'); document.getElementById('login-err').classList.remove('show');
+  });
+})();
+</script>
+
 <!-- Header -->
 <div class="header">
   <div style="display:flex;align-items:center;gap:10px">

@@ -1,5 +1,5 @@
 // Service Worker：離線可開啟頁面；資料 API（Google Apps Script 等）一律走網路
-const CACHE = 'room-v1';
+const CACHE = 'room-v2';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
