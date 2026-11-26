@@ -390,6 +390,23 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   .bed-grid{grid-template-columns:1fr 1fr}
   .map-area{padding:4px}
 }
+/* 手機：頁首按鈕與地圖工具列改為單行可橫向滑動，避免文字被擠成直排 */
+@media (max-width:768px){
+  .header > div:first-child{min-width:0}
+  .header-actions{width:100%;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+  .header-actions::-webkit-scrollbar{display:none}
+  .header-actions > *{flex-shrink:0}
+  .header-actions .btn{white-space:nowrap}
+  .map-topbar{flex-wrap:wrap;gap:6px}
+  .map-tools{width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;padding-bottom:2px}
+  .map-tools::-webkit-scrollbar{display:none}
+  .map-tools > *{flex-shrink:0}
+  .zoom-title{display:none}
+  .zoom-ctrl button{padding:5px 11px}
+  .zoom-ctrl button:nth-child(5){white-space:nowrap}
+  #allfloors-view .af-hint{display:none}
+  #allfloors-view > div:first-child{padding:8px 10px;gap:8px}
+}
 /* 返回訓練管理整合平台 */
 .tfd-back{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
   padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.16);
@@ -399,6 +416,13 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 @media (max-width:480px){.tfd-back{padding:5px 9px}.tfd-back .tfd-back-text{display:none}}
 @media print{.tfd-back{display:none}}
 </style>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="住宿管理">
 </head>
 <body>
 
@@ -412,7 +436,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
       <div style="font-size:10px;opacity:.8" id="header-floor-label">5F 平面配置管理</div>
     </div>
   </div>
-  <div style="display:flex;gap:7px;align-items:center">
+  <div class="header-actions" style="display:flex;gap:7px;align-items:center">
     <div class="mobile-toggle">
       <button class="btn btn-light" onclick="toggleSidebar()" title="選單">☰</button>
       <button class="btn btn-light" onclick="toggleRightPanel()" title="房間詳情">ℹ️</button>
@@ -510,13 +534,13 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
   <!-- ── Map Area ── -->
   <div class="map-area">
     <!-- Floor tabs -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div class="map-topbar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="floor-tabs" style="align-items:center">
         <button class="floor-tab active" id="floortab-5F" onclick="switchFloor('5F')">5F</button>
         <button class="floor-tab" id="floortab-6F" onclick="switchFloor('6F')">6F</button>
         <button class="btn btn-sm" style="background:#2d3748;color:white;white-space:nowrap;margin-left:6px" onclick="openAllFloorsView()" title="以立體堆疊方式檢視 5F 與 6F 全圖面">🏢 全樓層檢視</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div class="map-tools" style="display:flex;align-items:center;gap:8px">
         <div class="legend">
           <div class="legend-item"><div class="legend-box" style="background:#c6f6d5;border-color:#38a169"></div>空房</div>
           <div class="legend-item"><div class="legend-box" style="background:#fefcbf;border-color:#d69e2e"></div>部分</div>
@@ -524,7 +548,7 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
           <div class="legend-item"><div class="legend-box" style="background:#ffc0cb;border-color:#d53f8c"></div>女性</div>
         </div>
         <div class="zoom-ctrl" style="align-items:center">
-          <span style="font-size:11px;color:#4a5568;font-weight:600;white-space:nowrap;margin-right:4px">圖面大小調整</span>
+          <span class="zoom-title" style="font-size:11px;color:#4a5568;font-weight:600;white-space:nowrap;margin-right:4px">圖面大小調整</span>
           <button onclick="zoomMap(-0.1)">－</button>
           <span id="zoom-label">50%</span>
           <button onclick="zoomMap(0.1)">＋</button>
@@ -690,8 +714,8 @@ body{font-family:'Microsoft JhengHei',sans-serif;background:#f0f4f8;color:#2d374
 <div id="allfloors-view" style="display:none;position:fixed;inset:0;z-index:4500;background:#e2e5e9;overflow:hidden;flex-direction:column">
   <div style="flex-shrink:0;z-index:10;background:rgba(45,55,72,.96);color:white;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2)">
     <div style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:17px;font-weight:700">🏢 全樓層檢視</span>
-      <span style="font-size:12px;opacity:.75">🖱️ 拖曳旋轉 · 滾輪縮放 · 點房間查看與排房</span>
+      <span style="font-size:17px;font-weight:700;white-space:nowrap">🏢 全樓層檢視</span>
+      <span class="af-hint" style="font-size:12px;opacity:.75">🖱️ 拖曳旋轉 · 滾輪縮放 · 點房間查看與排房</span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
       <button class="af-tb" onclick="_afView('top')" title="快捷鍵 1">俯視</button>
@@ -4669,6 +4693,13 @@ try {
 } catch (e) {
   console.error('[layout-sync] Firebase 初始化失敗:', e);
 }
+</script>
+
+<script>
+  // PWA：註冊 Service Worker（可加到主畫面、離線開啟）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
 </script>
 </body>
 </html>
